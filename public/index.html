@@ -51,26 +51,26 @@
         <div class="loading-spinner"></div>
         <h1>Dart Counter</h1>
         <p>Loading application...</p>
+        <p>If the app doesn't load within a few seconds, please check your browser console for errors.</p>
       </div>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Fallback script to check if the app loaded -->
     <script>
-      // Fallback in case app doesn't load
-      setTimeout(function() {
-        var root = document.getElementById('root');
-        if (root && root.querySelector('.loading-container')) {
-          console.log('Application may have failed to load. Adding error message.');
-          var errorMessage = document.createElement('p');
-          errorMessage.style.color = '#f8d7da';
-          errorMessage.style.marginTop = '20px';
-          errorMessage.style.padding = '10px';
-          errorMessage.style.border = '1px solid #f5c6cb';
-          errorMessage.style.borderRadius = '4px';
-          errorMessage.style.backgroundColor = 'rgba(220, 53, 69, 0.2)';
-          errorMessage.innerText = 'The application is taking longer than expected to load. Please check your browser console for errors.';
-          root.querySelector('.loading-container').appendChild(errorMessage);
-        }
-      }, 10000);
+      window.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+          var root = document.getElementById('root');
+          // Check if the loading container is still the only child of root
+          if (root && root.children.length === 1 && root.children[0].className === 'loading-container') {
+            console.log('Application failed to load. Attempting to reload...');
+            // Try to load the main JavaScript file directly
+            var script = document.createElement('script');
+            script.src = '/assets/index-saU-uNAB.js'; // This is the filename from your build logs
+            script.type = 'module';
+            document.body.appendChild(script);
+          }
+        }, 5000); // Wait 5 seconds
+      });
     </script>
   </body>
 </html> 
