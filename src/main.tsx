@@ -4,8 +4,25 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 
+// Access debug logger from window
+declare global {
+  interface Window {
+    debugLog?: (message: string) => void;
+  }
+}
+
+// Helper to log debug messages
+const debug = (message: string) => {
+  console.log('[Dart Counter]', message);
+  if (window.debugLog) {
+    window.debugLog(message);
+  }
+};
+
 // Write a message to the document body if something fails
 const showError = (message: string) => {
+  debug(`ERROR: ${message}`);
+  
   const errorDiv = document.createElement('div');
   errorDiv.style.padding = '20px';
   errorDiv.style.margin = '20px';
@@ -18,7 +35,7 @@ const showError = (message: string) => {
 };
 
 try {
-  console.log('Initializing application...');
+  debug('Initializing application...');
   
   // Get the root element
   const root = document.getElementById('root');
@@ -27,12 +44,12 @@ try {
     throw new Error('Root element not found! Expected element with id "root"');
   }
   
-  console.log('Found root element, creating React root...');
+  debug('Found root element, creating React root...');
   
   // Create and render the root
   const reactRoot = ReactDOM.createRoot(root);
   
-  console.log('Rendering application...');
+  debug('Rendering application...');
   
   reactRoot.render(
     <React.StrictMode>
@@ -42,7 +59,7 @@ try {
     </React.StrictMode>
   );
   
-  console.log('Application rendered successfully');
+  debug('Application rendered successfully');
 } catch (error) {
   console.error('Error mounting React application:', error);
   showError(`Failed to load application: ${error instanceof Error ? error.message : String(error)}`);

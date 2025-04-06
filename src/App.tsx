@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component, ErrorInfo } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline, Box, Typography, Button } from '@mui/material';
 import { AnimatePresence } from 'framer-motion';
 
 // Contexts
@@ -77,6 +77,75 @@ const darkTheme = createTheme({
   },
 });
 
+// Error boundary component to catch runtime errors
+class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { 
+      hasError: false,
+      error: null,
+      errorInfo: null 
+    };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    // Update state so the next render will show the fallback UI
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Log the error to console
+    console.error('React Error Boundary caught an error:', error, errorInfo);
+    
+    // Log to debug display if available
+    if (window.debugLog) {
+      window.debugLog(`Error caught: ${error.message}`);
+    }
+    
+    this.setState({ error, errorInfo });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box 
+          sx={{ 
+            p: 3, 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            bgcolor: '#121212',
+            color: 'white'
+          }}
+        >
+          <Typography variant="h4" gutterBottom color="error">
+            Something went wrong
+          </Typography>
+          <Typography variant="body1" paragraph sx={{ maxWidth: 600, textAlign: 'center', mb: 3 }}>
+            The application has encountered an error. Please try refreshing the page.
+          </Typography>
+          <Box sx={{ bgcolor: '#1e1e1e', p: 2, borderRadius: 1, mb: 3, width: '100%', maxWidth: 600, overflowX: 'auto' }}>
+            <Typography variant="body2" component="pre" sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {this.state.error?.toString() || 'Unknown error'}
+            </Typography>
+          </Box>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => window.location.reload()}
+          >
+            Refresh Page
+          </Button>
+        </Box>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 function App() {
   const location = useLocation();
   const [showNav, setShowNav] = useState(true);
@@ -89,34 +158,43 @@ function App() {
       setShowNav(true);
     }
   }, [location]);
+  
+  // Log app initialization
+  useEffect(() => {
+    if (window.debugLog) {
+      window.debugLog(`App initialized. Path: ${location.pathname}`);
+    }
+  }, [location.pathname]);
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <CssBaseline />
-      <AuthProvider>
-        <UIProvider>
-          <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              <Route path="/login" element={<Login />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/auth/debug" element={<AuthDebug />} />
-              <Route path="/auth/rls-debug" element={<RLSDebug />} />
-              
-              <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-              <Route path="/game/new" element={<ProtectedRoute><GameSetup /></ProtectedRoute>} />
-              <Route path="/game/:id" element={<ProtectedRoute><ActiveGame /></ProtectedRoute>} />
-              <Route path="/stats" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
-              <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AnimatePresence>
-          
-          {showNav && <BottomNavigation />}
-        </UIProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider theme={darkTheme}>
+        <CssBaseline />
+        <AuthProvider>
+          <UIProvider>
+            <AnimatePresence mode="wait">
+              <Routes location={location} key={location.pathname}>
+                <Route path="/login" element={<Login />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/auth/debug" element={<AuthDebug />} />
+                <Route path="/auth/rls-debug" element={<RLSDebug />} />
+                
+                <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+                <Route path="/game/new" element={<ProtectedRoute><GameSetup /></ProtectedRoute>} />
+                <Route path="/game/:id" element={<ProtectedRoute><ActiveGame /></ProtectedRoute>} />
+                <Route path="/stats" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
+                <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AnimatePresence>
+            
+            {showNav && <BottomNavigation />}
+          </UIProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

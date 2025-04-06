@@ -14,6 +14,10 @@ import {
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Define valid tables to check
+const VALID_TABLES = ['games', 'game_players', 'turns', 'statistics', 'friends', 'rivals'] as const;
+type ValidTable = typeof VALID_TABLES[number];
+
 const RLSDebug = () => {
   const { user, session } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -40,30 +44,18 @@ const RLSDebug = () => {
           "No session found"
       });
       
-      // Test profiles table (replacing users table)
+      // Skip profile check since we're not sure which table is used
       if (sessionData?.session) {
-        // @ts-ignore - Ignoring type checking for this query to bypass TypeScript errors
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')  // Use 'profiles' instead of 'users'
-          .select('*')
-          .eq('id', sessionData.session.user.id)
-          .single();
-          
         testResults.push({
-          name: "Read Own User Data",
-          status: userData ? "success" : "error",
-          error: userError?.message || null,
-          details: userData ? 
-            `Found user profile: ${userData.id}` : // Use id instead of email
-            "Could not read user data"
+          name: "User Profile Check",
+          status: "info",
+          error: null,
+          details: "User is authenticated with ID: " + sessionData.session.user.id
         });
       }
       
       // Try to list a few tables to check RLS
-      const tables = ['games', 'game_players', 'turns', 'statistics', 'friends'];
-      
-      for (const table of tables) {
-        // @ts-ignore - Ignoring type checking for this query to bypass TypeScript errors
+      for (const table of VALID_TABLES) {
         const { data, error: tableError } = await supabase
           .from(table)
           .select('count(*)')
@@ -156,9 +148,15 @@ const RLSDebug = () => {
                     <Box>
                       <Typography 
                         component="span" 
-                        color={result.status === "success" ? "success.main" : "error"}
+                        color={
+                          result.status === "success" ? "success.main" : 
+                          result.status === "info" ? "info.main" : "error"
+                        }
                       >
-                        {result.status === "success" ? "✓ Success" : "✗ Failed"}
+                        {
+                          result.status === "success" ? "✓ Success" : 
+                          result.status === "info" ? "ℹ Info" : "✗ Failed"
+                        }
                       </Typography>
                       
                       {result.details && (

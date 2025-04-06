@@ -43,6 +43,40 @@ export interface Database {
           }
         ]
       }
+      profiles: {
+        Row: {
+          id: string
+          name: string
+          avatar_url: string | null
+          created_at: string
+          updated_at: string | null
+          email: string | null
+        }
+        Insert: {
+          id: string
+          name?: string
+          avatar_url?: string | null
+          created_at?: string
+          updated_at?: string | null
+          email?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          avatar_url?: string | null
+          created_at?: string
+          updated_at?: string | null
+          email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       games: {
         Row: {
           id: string
