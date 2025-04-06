@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "jest",
-    "vercel-build": "npm install @types/react@18.2.55 @types/react-dom@18.2.19 react@18.2.0 react-dom@18.2.0 react-router-dom@6.22.0 --legacy-peer-deps && tsc && vite build",
+    "vercel-build": "./vercel-build.sh",
     "lint": "eslint src --ext ts,tsx",
     "analyze": "vite build --mode analyze"
   },
