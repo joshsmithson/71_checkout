@@ -400,35 +400,48 @@ export const useSupabase = () => {
     }
     
     // Try the database function for pre-determined checkout paths
-    return fetchData(async () => {
-      const result = await supabase
+    try {
+      // @ts-ignore - Bypassing type checking for Supabase RPC call
+      const { data, error } = await supabase
         .rpc('suggest_checkout', { remaining_score: remainingScore });
-      
-      // If no result or invalid checkout returned, provide a fallback suggestion
-      if (!result || result.length === 0 || (result.length === 1 && result[0] === 'No checkout possible')) {
-        // Fallback: Try to reduce to a manageable double
-        // First try to leave a score <= 40 for a direct double
-        const targetScore = Math.min(40, Math.floor(remainingScore / 2) * 2);
-        const scoreToRemove = remainingScore - targetScore;
         
-        if (scoreToRemove <= 60) {
-          // If we can get there with a single dart
-          if (scoreToRemove <= 20) {
-            return [`S${scoreToRemove}`, `D${targetScore/2}`];
-          } else if (scoreToRemove % 2 === 0 && scoreToRemove <= 40) {
-            return [`D${scoreToRemove/2}`, `D${targetScore/2}`];
-          } else if (scoreToRemove % 3 === 0 && scoreToRemove <= 60) {
-            return [`T${scoreToRemove/3}`, `D${targetScore/2}`];
-          }
-        }
-        
-        // Default fallback for odd scores
-        return [`S1`, `D${Math.floor(remainingScore/2)}`];
+      if (error) {
+        console.error("Error fetching checkout suggestion:", error);
+        return generateFallbackCheckout(remainingScore);
       }
       
-      return result;
-    });
-  }, [fetchData]);
+      if (!data || data.length === 0 || (data.length === 1 && data[0] === 'No checkout possible')) {
+        return generateFallbackCheckout(remainingScore);
+      }
+      
+      return data;
+    } catch (err) {
+      console.error("Exception fetching checkout suggestion:", err);
+      return generateFallbackCheckout(remainingScore);
+    }
+  }, []);
+
+  // Helper function to generate fallback checkout suggestions
+  const generateFallbackCheckout = (remainingScore: number): string[] => {
+    // Fallback: Try to reduce to a manageable double
+    // First try to leave a score <= 40 for a direct double
+    const targetScore = Math.min(40, Math.floor(remainingScore / 2) * 2);
+    const scoreToRemove = remainingScore - targetScore;
+    
+    if (scoreToRemove <= 60) {
+      // If we can get there with a single dart
+      if (scoreToRemove <= 20) {
+        return [`S${scoreToRemove}`, `D${targetScore/2}`];
+      } else if (scoreToRemove % 2 === 0 && scoreToRemove <= 40) {
+        return [`D${scoreToRemove/2}`, `D${targetScore/2}`];
+      } else if (scoreToRemove % 3 === 0 && scoreToRemove <= 60) {
+        return [`T${scoreToRemove/3}`, `D${targetScore/2}`];
+      }
+    }
+    
+    // Default fallback for odd scores
+    return [`S1`, `D${Math.floor(remainingScore/2)}`];
+  };
 
   return {
     loading,

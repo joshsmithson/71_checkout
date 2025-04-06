@@ -65,6 +65,28 @@ The application uses the following tables in Supabase:
 - **statistics**: Player performance metrics
 - **rivals**: Head-to-head player relationships
 
+## Vercel Deployment
+
+This application is configured to deploy on Vercel. You need to add the following environment variables in your Vercel project settings:
+
+- `VITE_SUPABASE_URL`: Your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY`: Your Supabase anonymous key
+
+### Steps to deploy:
+
+1. Link your GitHub repository to Vercel
+2. Add the environment variables in the Vercel project settings
+3. Deploy the project
+
+### Troubleshooting
+
+If you see a blank page after deployment:
+
+1. Check the browser console for errors
+2. Verify that your environment variables are correctly set in Vercel
+3. Make sure your Supabase project is running and accessible
+4. Check if your application is correctly building locally with `npm run build`
+
 ## License
 
 MIT 
