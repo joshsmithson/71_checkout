@@ -1,0 +1,52 @@
+:root {
+  /* Color Palette */
+  --primary-bg: #121212;
+  --card-bg: #1E1E1E;
+  --primary-accent: #E53935;
+  --success-color: #43A047;
+  --warning-color: #FFB300;
+  --info-color: #1E88E5;
+  --text-primary: #FFFFFF;
+  --text-secondary: #B3B3B3;
+  --text-disabled: #757575;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--primary-bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  width: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.scores {
+  font-family: 'Roboto Condensed', sans-serif;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+/* Make touch targets larger for mobile */
+button, 
+a, 
+input[type="button"], 
+input[type="submit"],
+.interactive {
+  min-height: 48px;
+  min-width: 48px;
+} 
