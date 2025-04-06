@@ -8,7 +8,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "jest"
+    "test": "jest",
+    "vercel-build": "npm run build",
+    "lint": "eslint src --ext ts,tsx",
+    "analyze": "vite build --mode analyze"
   },
   "keywords": [],
   "author": "",
@@ -33,5 +36,8 @@
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.8.3",
     "vite": "^6.2.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

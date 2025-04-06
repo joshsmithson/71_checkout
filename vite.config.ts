@@ -10,4 +10,26 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  build: {
+    // Reduce chunk size warnings
+    chunkSizeWarningLimit: 1000,
+    // Enable source maps for production debugging
+    sourcemap: true,
+    // Optimize chunk size
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          mui: ['@mui/material', '@mui/icons-material'],
+          supabase: ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
+  // Prevent full reload on component changes
+  server: {
+    hmr: {
+      overlay: true,
+    },
+  },
 }); 
