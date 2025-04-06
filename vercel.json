@@ -3,10 +3,8 @@
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "trailingSlash": false,
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/assets/(.*)", "dest": "/assets/$1" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
