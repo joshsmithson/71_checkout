@@ -1,17 +1,15 @@
-// Vercel middleware to handle authentication and redirects
-export default function middleware(req) {
-  const url = new URL(req.url);
+export default function middleware(request) {
+  const url = new URL(request.url);
   
-  // Set security headers for all responses
-  const response = new Response();
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  
-  // Handle Supabase auth callback
-  if (url.pathname.startsWith('/auth/callback')) {
-    return response;
+  // Set Content-Type header for HTML responses
+  if (url.pathname === '/' || url.pathname.endsWith('.html') || !url.pathname.includes('.')) {
+    return new Response(null, {
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+      },
+    });
   }
   
-  return response;
+  // Continue with the default response for other file types
+  return new Response();
 } 
