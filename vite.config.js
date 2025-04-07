@@ -5,8 +5,8 @@ import { resolve } from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Using empty string for base to use relative paths properly
-  base: '',
+  // Base path for asset references
+  base: '/',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
