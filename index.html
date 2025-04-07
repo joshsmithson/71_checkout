@@ -12,6 +12,8 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400,500,700&family=Roboto+Condensed:wght@400;700&display=swap"
     />
+    <!-- Load environment variables -->
+    <script src="/env.js"></script>
     <title>Dart Counter</title>
     <style>
       body {
@@ -93,43 +95,35 @@
       setTimeout(function() {
         const loadingInfo = document.getElementById('loading-info');
         if (loadingInfo) {
-          loadingInfo.textContent = 'Checking for built assets...';
+          loadingInfo.textContent = 'Checking if app loaded correctly...';
           
-          // Try to load a script dynamically by asset pattern
-          const possibleAssetPatterns = [
-            '/assets/index-',         // Standard Vite pattern
-            '/assets/main-',          // Alternate pattern
-            '/assets/app-',           // Another possibility
-            '/index-',                // Root-level possibility
-            '/main-'                  // Another root-level possibility
-          ];
-          
-          // Update loading message
-          loadingInfo.textContent = 'Looking for application script...';
-          
-          // Function to create and attempt to load a script
-          function tryLoadScript(basePath, attempt = 0) {
-            if (attempt >= possibleAssetPatterns.length) {
-              loadingInfo.textContent = 'Could not load application. Please check console.';
-              return;
-            }
-            
-            const scriptEl = document.createElement('script');
-            scriptEl.type = 'module';
-            scriptEl.src = possibleAssetPatterns[attempt] + 'bundle.js'; // Generic name
-            scriptEl.onerror = function() {
-              console.log('Failed to load script from: ' + scriptEl.src);
-              tryLoadScript(basePath, attempt + 1);
-            };
-            scriptEl.onload = function() {
-              loadingInfo.textContent = 'Script loaded!';
-            };
-            document.body.appendChild(scriptEl);
-            loadingInfo.textContent = 'Trying to load from: ' + scriptEl.src;
+          // Check if the app script loaded successfully
+          if (typeof window.__ENV === 'undefined') {
+            loadingInfo.textContent = 'Environment variables missing, loading recovery page...';
+            // Redirect to debug page
+            window.location.href = '/debug.html';
+            return;
           }
           
-          // Start attempting to load scripts
-          tryLoadScript('');
+          // Show environment variable status
+          if (window.__ENV && (!window.__ENV.VITE_SUPABASE_URL || window.__ENV.VITE_SUPABASE_URL === '{{VITE_SUPABASE_URL}}')) {
+            loadingInfo.textContent = 'ERROR: Environment variables not loaded correctly';
+            loadingInfo.style.color = '#ff5252';
+            // Add a direct link to the debug page
+            const debugLink = document.createElement('a');
+            debugLink.href = '/debug.html';
+            debugLink.textContent = 'View Diagnostics';
+            debugLink.style.display = 'inline-block';
+            debugLink.style.margin = '10px';
+            debugLink.style.padding = '8px 15px';
+            debugLink.style.background = '#e53935';
+            debugLink.style.color = 'white';
+            debugLink.style.borderRadius = '4px';
+            debugLink.style.textDecoration = 'none';
+            loadingInfo.parentElement.appendChild(debugLink);
+          } else {
+            loadingInfo.textContent = 'Environment variables loaded correctly, app should start soon...';
+          }
         }
       }, 5000); // 5 second delay
     </script>
