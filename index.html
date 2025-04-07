@@ -12,8 +12,6 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400,500,700&family=Roboto+Condensed:wght@400;700&display=swap"
     />
-    <!-- Load environment variables -->
-    <script src="/env.js"></script>
     <title>Dart Counter</title>
     <style>
       body {
@@ -45,22 +43,6 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
-      #debug-info {
-        position: fixed;
-        bottom: 10px;
-        left: 10px;
-        background: rgba(0,0,0,0.8);
-        color: #4CAF50;
-        font-family: monospace;
-        padding: 10px;
-        border-radius: 5px;
-        max-width: 90%;
-        max-height: 200px;
-        overflow-y: auto;
-        font-size: 12px;
-        z-index: 9999;
-        display: none;
-      }
     </style>
     <!-- SPA Routing Support -->
     <script type="text/javascript">
@@ -83,49 +65,8 @@
         <div class="loading-spinner"></div>
         <h1>Dart Counter</h1>
         <p>Loading application...</p>
-        <p id="loading-info">Initializing...</p>
       </div>
     </div>
-    <div id="debug-info"></div>
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Fallback script in case main script fails to load -->
-    <script>
-      // Set a timeout to check if the application loaded
-      setTimeout(function() {
-        const loadingInfo = document.getElementById('loading-info');
-        if (loadingInfo) {
-          loadingInfo.textContent = 'Checking if app loaded correctly...';
-          
-          // Check if the app script loaded successfully
-          if (typeof window.__ENV === 'undefined') {
-            loadingInfo.textContent = 'Environment variables missing, loading recovery page...';
-            // Redirect to debug page
-            window.location.href = '/debug.html';
-            return;
-          }
-          
-          // Show environment variable status
-          if (window.__ENV && (!window.__ENV.VITE_SUPABASE_URL || window.__ENV.VITE_SUPABASE_URL === '{{VITE_SUPABASE_URL}}')) {
-            loadingInfo.textContent = 'ERROR: Environment variables not loaded correctly';
-            loadingInfo.style.color = '#ff5252';
-            // Add a direct link to the debug page
-            const debugLink = document.createElement('a');
-            debugLink.href = '/debug.html';
-            debugLink.textContent = 'View Diagnostics';
-            debugLink.style.display = 'inline-block';
-            debugLink.style.margin = '10px';
-            debugLink.style.padding = '8px 15px';
-            debugLink.style.background = '#e53935';
-            debugLink.style.color = 'white';
-            debugLink.style.borderRadius = '4px';
-            debugLink.style.textDecoration = 'none';
-            loadingInfo.parentElement.appendChild(debugLink);
-          } else {
-            loadingInfo.textContent = 'Environment variables loaded correctly, app should start soon...';
-          }
-        }
-      }, 5000); // 5 second delay
-    </script>
   </body>
 </html> 
