@@ -9,11 +9,16 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: true,
-    minify: 'terser',
-    // Ensure all dependencies are bundled
-    commonjsOptions: {
-      include: [/node_modules/],
-    },
+    minify: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          mui: ['@mui/material', '@mui/icons-material'],
+          supabase: ['@supabase/supabase-js']
+        }
+      }
+    }
   },
   resolve: {
     alias: {
