@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 
-// Log debug messages if available
+// Log debug messages
 const debug = (message: string) => {
   console.log('[Supabase]', message);
   if (typeof window !== 'undefined' && window.debugLog) {
@@ -12,37 +12,62 @@ const debug = (message: string) => {
 };
 
 // Get environment variables with fallbacks
-let supabaseUrl: string;
-let supabaseAnonKey: string;
+// Using more robust detection of environment variables
+let supabaseUrl = '';
+let supabaseAnonKey = '';
 
 try {
-  supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  
-  // Log env variable status
-  debug(`Supabase URL present: ${!!supabaseUrl}`);
-  debug(`Supabase Key present: ${!!supabaseAnonKey}`);
-  
-  // If we're in production and missing variables, look for them as global variables
-  if (import.meta.env.PROD && (!supabaseUrl || !supabaseAnonKey)) {
-    debug('Trying to get env vars from window.__ENV');
-    // Some deployment platforms inject env variables into the window object
-    const windowEnv = (window as any).__ENV;
-    if (windowEnv) {
-      if (!supabaseUrl && windowEnv.VITE_SUPABASE_URL) {
-        supabaseUrl = windowEnv.VITE_SUPABASE_URL;
-        debug('Found Supabase URL in window.__ENV');
-      }
-      if (!supabaseAnonKey && windowEnv.VITE_SUPABASE_ANON_KEY) {
-        supabaseAnonKey = windowEnv.VITE_SUPABASE_ANON_KEY;
-        debug('Found Supabase Key in window.__ENV');
-      }
-    }
+  // Priority 1: Check import.meta.env (Vite standard)
+  if (import.meta.env.VITE_SUPABASE_URL) {
+    supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    debug('Using Supabase URL from import.meta.env');
   }
+  
+  if (import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    debug('Using Supabase Key from import.meta.env');
+  }
+  
+  // Priority 2: Check process.env (fallback for some environments)
+  if (!supabaseUrl && typeof process !== 'undefined' && process.env && process.env.VITE_SUPABASE_URL) {
+    supabaseUrl = process.env.VITE_SUPABASE_URL;
+    debug('Using Supabase URL from process.env');
+  }
+  
+  if (!supabaseAnonKey && typeof process !== 'undefined' && process.env && process.env.VITE_SUPABASE_ANON_KEY) {
+    supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+    debug('Using Supabase Key from process.env');
+  }
+  
+  // Priority 3: Check window.__ENV (some deployment platforms)
+  if (!supabaseUrl && typeof window !== 'undefined' && window.__ENV && window.__ENV.VITE_SUPABASE_URL) {
+    supabaseUrl = window.__ENV.VITE_SUPABASE_URL;
+    debug('Using Supabase URL from window.__ENV');
+  }
+  
+  if (!supabaseAnonKey && typeof window !== 'undefined' && window.__ENV && window.__ENV.VITE_SUPABASE_ANON_KEY) {
+    supabaseAnonKey = window.__ENV.VITE_SUPABASE_ANON_KEY;
+    debug('Using Supabase Key from window.__ENV');
+  }
+  
+  // Last resort: Hard-coded fallbacks for development only
+  if (!supabaseUrl && import.meta.env.DEV) {
+    // This is only used in development and should be replaced with proper environment variables
+    debug('WARNING: Using fallback Supabase URL. This should only happen in development.');
+    supabaseUrl = 'https://your-dev-project.supabase.co';
+  }
+  
+  if (!supabaseAnonKey && import.meta.env.DEV) {
+    debug('WARNING: Using fallback Supabase Key. This should only happen in development.');
+    supabaseAnonKey = 'fallback-dev-key-not-for-production';
+  }
+  
+  // Log final status
+  debug(`Final Supabase URL present: ${!!supabaseUrl}`);
+  debug(`Final Supabase Key present: ${!!supabaseAnonKey}`);
+  
 } catch (err) {
   debug(`Error accessing env variables: ${err}`);
-  supabaseUrl = '';
-  supabaseAnonKey = '';
 }
 
 // Add error handling for production environment
@@ -86,10 +111,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   }
 }
 
-// Create Supabase client with error handling
+// Create Supabase client with added safeguards
 export const supabase = createClient<Database>(
-  supabaseUrl || 'https://placeholder-url.supabase.co',
-  supabaseAnonKey || 'placeholder-key',
+  // Use placeholders that will cause obvious errors if not replaced
+  supabaseUrl || 'https://missing-supabase-url.supabase.co',
+  supabaseAnonKey || 'missing-supabase-key',
   {
     auth: {
       persistSession: true,
