@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#121212" />
+    <meta name="description" content="Dart Counter - Track your dart scores and statistics" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400,500,700&family=Roboto+Condensed:wght@400;700&display=swap"
+    />
+    <title>Dart Counter</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Roboto', sans-serif;
+        background-color: #121212;
+        color: white;
+      }
+      .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        padding: 20px;
+        text-align: center;
+      }
+      .loading-spinner {
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 4px solid #e53935;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .error-card {
+        background-color: #1e1e1e;
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 500px;
+        margin: 20px auto;
+        text-align: left;
+      }
+      .button {
+        background-color: #e53935;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-top: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <h1>Dart Counter</h1>
+        <p>Loading application...</p>
+        
+        <div id="debug-output" style="margin-top: 30px; text-align: left;"></div>
+        
+        <div class="error-card" id="error-card" style="display: none;">
+          <h3>We're having trouble loading the application</h3>
+          <p>This could be due to:</p>
+          <ul>
+            <li>Network connectivity issues</li>
+            <li>Missing build files</li>
+            <li>Server configuration problems</li>
+          </ul>
+          <p>Please try refreshing the page or checking your connection.</p>
+          <button class="button" onclick="window.location.reload()">Refresh Page</button>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      // Set a timeout to check if the application is loading
+      setTimeout(function() {
+        document.getElementById('error-card').style.display = 'block';
+        
+        var debugOutput = document.getElementById('debug-output');
+        if (debugOutput) {
+          debugOutput.innerHTML = `
+            <p><strong>Debug Information:</strong></p>
+            <p>URL: ${window.location.href}</p>
+            <p>User Agent: ${navigator.userAgent}</p>
+            <p>Time: ${new Date().toISOString()}</p>
+          `;
+        }
+        
+        // Look for common asset patterns
+        const debugChecks = [];
+        
+        // Function to check if a file exists
+        function checkFileExists(url) {
+          const xhr = new XMLHttpRequest();
+          xhr.open('HEAD', url, true);
+          xhr.onload = function() {
+            debugChecks.push(`File ${url}: ${xhr.status === 200 ? 'Found' : 'Not found'}`);
+            updateDebug();
+          };
+          xhr.onerror = function() {
+            debugChecks.push(`File ${url}: Error checking`);
+            updateDebug();
+          };
+          xhr.send();
+        }
+        
+        // Update debug output
+        function updateDebug() {
+          if (debugOutput && debugChecks.length > 0) {
+            debugOutput.innerHTML += '<p><strong>File checks:</strong></p>';
+            debugOutput.innerHTML += '<ul>' + 
+              debugChecks.map(check => `<li>${check}</li>`).join('') + 
+              '</ul>';
+          }
+        }
+        
+        // Check for common files
+        checkFileExists('/assets/index.js');
+        checkFileExists('/assets/main.js');
+        checkFileExists('/index.js');
+        checkFileExists('/main.js');
+        
+      }, 5000); // Show after 5 seconds
+    </script>
+  </body>
+</html> 

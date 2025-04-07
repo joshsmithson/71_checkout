@@ -81,9 +81,57 @@
         <div class="loading-spinner"></div>
         <h1>Dart Counter</h1>
         <p>Loading application...</p>
+        <p id="loading-info">Initializing...</p>
       </div>
     </div>
     <div id="debug-info"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Fallback script in case main script fails to load -->
+    <script>
+      // Set a timeout to check if the application loaded
+      setTimeout(function() {
+        const loadingInfo = document.getElementById('loading-info');
+        if (loadingInfo) {
+          loadingInfo.textContent = 'Checking for built assets...';
+          
+          // Try to load a script dynamically by asset pattern
+          const possibleAssetPatterns = [
+            '/assets/index-',         // Standard Vite pattern
+            '/assets/main-',          // Alternate pattern
+            '/assets/app-',           // Another possibility
+            '/index-',                // Root-level possibility
+            '/main-'                  // Another root-level possibility
+          ];
+          
+          // Update loading message
+          loadingInfo.textContent = 'Looking for application script...';
+          
+          // Function to create and attempt to load a script
+          function tryLoadScript(basePath, attempt = 0) {
+            if (attempt >= possibleAssetPatterns.length) {
+              loadingInfo.textContent = 'Could not load application. Please check console.';
+              return;
+            }
+            
+            const scriptEl = document.createElement('script');
+            scriptEl.type = 'module';
+            scriptEl.src = possibleAssetPatterns[attempt] + 'bundle.js'; // Generic name
+            scriptEl.onerror = function() {
+              console.log('Failed to load script from: ' + scriptEl.src);
+              tryLoadScript(basePath, attempt + 1);
+            };
+            scriptEl.onload = function() {
+              loadingInfo.textContent = 'Script loaded!';
+            };
+            document.body.appendChild(scriptEl);
+            loadingInfo.textContent = 'Trying to load from: ' + scriptEl.src;
+          }
+          
+          // Start attempting to load scripts
+          tryLoadScript('');
+        }
+      }, 5000); // 5 second delay
+    </script>
   </body>
 </html> 

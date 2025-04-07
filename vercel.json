@@ -1,10 +1,12 @@
 {
   "framework": "vite",
+  "buildCommand": "vite build",
   "outputDirectory": "dist",
-  "buildCommand": "npm run build",
   "public": true,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
