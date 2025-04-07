@@ -14,14 +14,21 @@ import {
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Define valid tables to check
-const VALID_TABLES = ['games', 'game_players', 'turns', 'statistics', 'friends', 'rivals'] as const;
-type ValidTable = typeof VALID_TABLES[number];
+// Define valid tables to check - must match the Database type definition
+type ValidTable = 'games' | 'game_players' | 'turns' | 'statistics' | 'friends' | 'rivals' | 'profiles';
+const VALID_TABLES: ValidTable[] = ['games', 'game_players', 'turns', 'statistics', 'friends', 'rivals', 'profiles'];
+
+type TestResult = {
+  name: string;
+  status: 'success' | 'error' | 'info';
+  error: string | null;
+  details: string;
+};
 
 const RLSDebug = () => {
   const { user, session } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<TestResult[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Function to test Supabase RLS policies by querying tables
@@ -30,7 +37,7 @@ const RLSDebug = () => {
     setError(null);
     setResults([]);
     
-    const testResults = [];
+    const testResults: TestResult[] = [];
     
     try {
       // Test session

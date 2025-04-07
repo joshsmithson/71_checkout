@@ -401,19 +401,20 @@ export const useSupabase = () => {
     
     // Try the database function for pre-determined checkout paths
     try {
-      // Use a different approach that's type-safe
-      const { data, error } = await supabase
-        .rpc('suggest_checkout', { remaining_score: remainingScore }) as unknown as { 
-          data: string[] | null; 
-          error: Error | null 
-        };
-        
+      // Make TypeScript-compatible RPC call
+      const { data, error } = await supabase.rpc('suggest_checkout', { 
+        remaining_score: remainingScore 
+      }) as unknown as { 
+        data: string[] | null; 
+        error: Error | null 
+      };
+      
       if (error) {
         console.error("Error fetching checkout suggestion:", error);
         return generateFallbackCheckout(remainingScore);
       }
       
-      if (!data || data.length === 0) {
+      if (!data || !Array.isArray(data) || data.length === 0) {
         return generateFallbackCheckout(remainingScore);
       }
       
