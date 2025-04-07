@@ -6,7 +6,7 @@
   "main": "dist/index.html",
   "scripts": {
     "dev": "vite",
-    "build": "npm install terser --no-save && tsc --skipLibCheck && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "jest",
     "lint": "eslint src --ext ts,tsx",

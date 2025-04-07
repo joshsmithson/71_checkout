@@ -5,7 +5,8 @@ import { resolve } from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: './', // This ensures assets are loaded with relative paths
+  // Using empty string for base to use relative paths properly
+  base: '',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -17,7 +18,11 @@ export default defineConfig({
           vendor: ['react', 'react-dom', 'react-router-dom'],
           mui: ['@mui/material', '@mui/icons-material'],
           supabase: ['@supabase/supabase-js']
-        }
+        },
+        // Ensure asset filenames have a consistent pattern
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     }
   },
