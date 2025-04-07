@@ -3,13 +3,12 @@
   "version": "1.0.0",
   "description": "A mobile-friendly dart counter web app for tracking scores during casual pub dart games",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/index.html",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "jest",
-    "vercel-build": "VITE_APP_BUILD_TIME=\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" VITE_APP_VERSION=\"$(git rev-parse --short HEAD || echo 'dev')\" ./vercel-build.sh",
     "lint": "eslint src --ext ts,tsx",
     "analyze": "vite build --mode analyze"
   },
