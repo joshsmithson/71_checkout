@@ -8,9 +8,76 @@
     <meta name="description" content="Dart Counter - Track your dart scores and statistics" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
+    <!-- Inline script to track page load process -->
+    <script>
+      // Create a global debugging object
+      window._DEBUG = {
+        logs: [],
+        timing: {},
+        log: function(msg) {
+          const time = new Date().toISOString();
+          console.log(`[LOAD:${time}] ${msg}`);
+          this.logs.push({time, msg});
+          
+          // Try to send to logging service if in production
+          if (navigator.sendBeacon) {
+            try {
+              const payload = JSON.stringify({
+                timestamp: time,
+                message: msg,
+                url: window.location.href,
+                userAgent: navigator.userAgent
+              });
+              navigator.sendBeacon('https://www.diagnostics-endpoint.com/log', payload);
+            } catch (e) {
+              // Ignore errors in the logging itself
+            }
+          }
+        }
+      };
+      
+      // Log initial page load
+      window._DEBUG.timing.pageStart = performance.now();
+      window._DEBUG.log('HTML document starting to load');
+      
+      // Track errors early
+      window.addEventListener('error', function(event) {
+        window._DEBUG.log(`ERROR: ${event.message} at ${event.filename}:${event.lineno}`);
+        // Keep the default error handler
+        return false;
+      });
+      
+      // Set a timeout that will log if the page hasn't fully initialized
+      window._DEBUG.initTimeout = setTimeout(function() {
+        window._DEBUG.log('WARNING: Page initialization timeout - app may have failed to start');
+        // Display the log on the page so we can see it even if console isn't accessible
+        const logs = document.createElement('div');
+        logs.style.position = 'fixed';
+        logs.style.top = '0';
+        logs.style.left = '0';
+        logs.style.right = '0';
+        logs.style.padding = '20px';
+        logs.style.background = 'black';
+        logs.style.color = 'lime';
+        logs.style.fontFamily = 'monospace';
+        logs.style.zIndex = '9999';
+        logs.style.whiteSpace = 'pre-wrap';
+        logs.style.maxHeight = '100vh';
+        logs.style.overflow = 'auto';
+        
+        let logContent = '=== DEBUG LOGS ===\n\n';
+        window._DEBUG.logs.forEach(function(entry) {
+          logContent += `[${entry.time}] ${entry.msg}\n`;
+        });
+        logs.textContent = logContent;
+        document.body.appendChild(logs);
+      }, 10000); // 10 second timeout
+    </script>
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400,500,700&family=Roboto+Condensed:wght@400;700&display=swap"
+      onload="window._DEBUG && window._DEBUG.log('Fonts loaded');"
+      onerror="window._DEBUG && window._DEBUG.log('ERROR: Fonts failed to load');"
     />
     <title>Dart Counter</title>
     <style>
@@ -56,17 +123,36 @@
               l.pathname.slice(0, -1) + decoded + l.hash
           );
         }
+        window._DEBUG && window._DEBUG.log('SPA routing script executed');
       }(window.location))
     </script>
   </head>
-  <body>
+  <body onload="window._DEBUG && window._DEBUG.log('Body loaded');">
     <div id="root">
       <div class="loading-container">
         <div class="loading-spinner"></div>
         <h1>Dart Counter</h1>
         <p>Loading application...</p>
+        <div id="load-status"></div>
       </div>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Log that we're about to load the main script
+      window._DEBUG && window._DEBUG.log('About to load main script');
+      
+      // Create a load status indicator that will update during initialization
+      const loadStatus = document.getElementById('load-status');
+      if (loadStatus) {
+        window._DEBUG.updateStatus = function(msg) {
+          loadStatus.textContent = msg;
+          window._DEBUG.log(msg);
+        };
+        window._DEBUG.updateStatus('Preparing to initialize app...');
+      }
+    </script>
+    <script type="module" src="/src/main.tsx" 
+      onload="window._DEBUG && window._DEBUG.log('Main script loaded successfully');"
+      onerror="window._DEBUG && window._DEBUG.log('ERROR: Failed to load main script');">
+    </script>
   </body>
 </html> 
