@@ -19,9 +19,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/basic", "destination": "/basic.html" },
-    { "source": "/debug", "destination": "/debug.html" },
-    { "source": "/home", "destination": "/home.html" },
-    { "source": "/((?!assets|sounds|favicon.svg|manifest.json|.*\\.html|.*\\.js|.*\\.css|.*\\.map).*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 } 
