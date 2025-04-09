@@ -428,12 +428,17 @@ export const useSupabase = () => {
     
     // Validate a suggestion before adding it
     const validateAndAddSuggestion = (suggestion: string[]) => {
-      // Check if all darts in the suggestion are valid
-      if (suggestion.every(dart => isValidDart(dart)) && 
-          verifyCheckoutTotal(suggestion, remainingScore)) {
-        suggestions.push(suggestion);
-      } else {
-        console.log(`Skipping invalid suggestion: ${suggestion.join(', ')}`);
+      try {
+        // Check if all darts in the suggestion are valid
+        if (suggestion.every(dart => isValidDart(dart)) && 
+            verifyCheckoutTotal(suggestion, remainingScore)) {
+          suggestions.push(suggestion);
+        } else {
+          console.log(`Skipping invalid suggestion: ${suggestion.join(', ')}`);
+        }
+      } catch (error) {
+        console.error(`Error validating suggestion: ${suggestion.join(', ')}`, error);
+        // Don't add invalid suggestions to prevent game issues
       }
     };
     
@@ -482,7 +487,7 @@ export const useSupabase = () => {
       124: [['T20', 'T16', 'D8']],
       123: [['T19', 'T16', 'D9']],
       122: [['T18', 'T18', 'D7']],
-      121: [['T20', 'S11', 'D20'], ['T17', 'T10', 'D20']],
+      121: [['T19', 'S14', 'D20'], ['T17', 'T10', 'D20']],
       120: [['T20', 'S20', 'D20']],
       119: [['T19', 'T12', 'D13']],
       118: [['T20', 'S18', 'D20']],
@@ -765,7 +770,8 @@ export const useSupabase = () => {
       if (remainingScore <= 60) {
         for (let i = 20; i >= 1; i--) {
           for (let j = 20; j >= 1; j--) {
-            if (i + (j * 2) === remainingScore) {
+            // Ensure j is a valid double (1-20)
+            if (i + (j * 2) === remainingScore && j <= 20) {
               validateAndAddSuggestion([`S${i}`, `D${j}`]);
               break;
             }
@@ -777,7 +783,8 @@ export const useSupabase = () => {
         const afterT20 = remainingScore - 60;
         for (let i = 20; i >= 1; i--) {
           for (let j = 20; j >= 1; j--) {
-            if (i + (j * 2) === afterT20) {
+            // Ensure j is a valid double (1-20)
+            if (i + (j * 2) === afterT20 && j <= 20) {
               validateAndAddSuggestion(['T20', `S${i}`, `D${j}`]);
               break;
             }

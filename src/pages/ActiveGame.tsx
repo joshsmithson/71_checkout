@@ -50,6 +50,7 @@ interface Turn {
   id: string;
   player_id: string;
   player_type: string;
+  game_id: string;
   turn_number: number;
   scores: number[];
   remaining: number;
@@ -321,6 +322,49 @@ const ActiveGame = () => {
       
       // Check if player has won (checkout)
       const isCheckout = remaining === 0;
+      
+      // Check if a turn with the same details already exists
+      const existingTurn = turns.find(
+        t => t.game_id === id && 
+             t.player_id === currentPlayer.id && 
+             t.player_type === currentPlayer.type && 
+             t.turn_number === turnNumber
+      );
+      
+      if (existingTurn) {
+        console.log('Turn already exists, skipping database update');
+        // Just update the UI state without adding a new turn
+        const updatedPlayers = [...players];
+        updatedPlayers[currentPlayerIndex].score = remaining;
+        
+        // Move to next player
+        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
+        
+        // Update turn number if we've gone through all players
+        const newTurnNumber = nextPlayerIndex === 0 ? turnNumber + 1 : turnNumber;
+        
+        // Update UI state
+        setPlayers(updatedPlayers);
+        setCurrentPlayerIndex(nextPlayerIndex);
+        setTurnNumber(newTurnNumber);
+        
+        // Get checkout suggestion for next player
+        const nextPlayer = updatedPlayers[nextPlayerIndex];
+        if (nextPlayer.score <= 170 && nextPlayer.score > 1) {
+          getCheckoutSuggestion(nextPlayer.score)
+            .then(suggestion => {
+              setCheckoutSuggestion(suggestion);
+            })
+            .catch(error => {
+              console.error('Error getting checkout suggestion:', error);
+            });
+        } else {
+          setCheckoutSuggestion(null);
+        }
+        
+        setIsSubmittingScore(false);
+        return;
+      }
       
       // Create turn record - don't block UI while waiting for the database
       let turn;
