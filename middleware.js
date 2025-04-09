@@ -1,15 +1,18 @@
 export default function middleware(request) {
+  // Get the URL and path from the request
   const url = new URL(request.url);
+  const path = url.pathname;
   
-  // Set Content-Type header for HTML responses
-  if (url.pathname === '/' || url.pathname.endsWith('.html') || !url.pathname.includes('.')) {
-    return new Response(null, {
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-      },
-    });
+  // Don't interfere with asset requests
+  if (path.startsWith('/assets/') || path.includes('.')) {
+    return;
   }
   
-  // Continue with the default response for other file types
-  return new Response();
+  // For all other routes, serve the index.html content with proper headers
+  return new Response(null, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+    },
+  });
 } 

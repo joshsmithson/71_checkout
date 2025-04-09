@@ -43,6 +43,19 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
+      #error-container {
+        color: white;
+        background: rgba(229, 57, 53, 0.9); 
+        padding: 20px;
+        margin: 20px;
+        border-radius: 4px;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 9999;
+        display: none;
+      }
     </style>
     <!-- SPA Routing Support -->
     <script type="text/javascript">
@@ -67,6 +80,25 @@
         <p>Loading application...</p>
       </div>
     </div>
+    <div id="error-container"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Fallback for module loading errors -->
+    <script nomodule>
+      // This only runs if the browser doesn't support ES modules or if there's a module error
+      document.getElementById('error-container').style.display = 'block';
+      document.getElementById('error-container').innerHTML = `
+        <h3>Error Loading Application</h3>
+        <p>There was a problem loading the application's JavaScript modules.</p>
+        <p>If you're seeing this message, please try:</p>
+        <ul>
+          <li>Refreshing the page</li>
+          <li>Clearing your browser cache</li>
+          <li>Using a modern browser like Chrome, Firefox, or Edge</li>
+        </ul>
+        <button onclick="window.location.reload()" style="background: white; color: #e53935; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer;">
+          Reload Application
+        </button>
+      `;
+    </script>
   </body>
 </html> 
