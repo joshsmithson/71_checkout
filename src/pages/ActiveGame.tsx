@@ -20,7 +20,8 @@ import {
   Menu,
   MenuItem,
   ListItemIcon,
-  IconButton
+  IconButton,
+  Grid
 } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -498,7 +499,33 @@ const ActiveGame = () => {
             {isPaused && <Chip size="small" label="PAUSED" color="warning" sx={{ ml: 1 }} />}
           </Typography>
         </Box>
-        <Box>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <IconButton 
+            size="small" 
+            onClick={() => setShowTurnHistory(true)}
+            aria-label="Turn history"
+          >
+            <HistoryIcon />
+          </IconButton>
+          {isPaused ? (
+            <IconButton
+              size="small"
+              color="success"
+              onClick={handleResumeGame}
+              aria-label="Resume game"
+            >
+              <PlayArrowIcon />
+            </IconButton>
+          ) : !isCompleted && (
+            <IconButton
+              size="small"
+              color="warning"
+              onClick={() => setConfirmPauseGame(true)}
+              aria-label="Pause game"
+            >
+              <PauseIcon />
+            </IconButton>
+          )}
           <IconButton
             onClick={handleMenuOpen}
             size="small"
@@ -506,37 +533,97 @@ const ActiveGame = () => {
           >
             <MoreVertIcon />
           </IconButton>
-        </Box>
+        </Stack>
       </Box>
 
-      {/* Game Score Cards - Now with more compact layout */}
-      <Stack spacing={1} sx={{ mb: 2 }}>
-        {players.map((player, index) => (
-          <MotionCard
-            key={player.id}
-            variant="outlined"
-            animate={{
-              scale: currentPlayerIndex === index ? [1, 1.02, 1] : 1,
-              borderColor: currentPlayerIndex === index ? '#1976d2' : undefined,
-              transition: { repeat: currentPlayerIndex === index ? Infinity : 0, repeatType: 'reverse', duration: 1.5 }
-            }}
-            sx={{
-              borderWidth: currentPlayerIndex === index ? 2 : 1,
-              backgroundColor: currentPlayerIndex === index ? 'rgba(25, 118, 210, 0.04)' : undefined
-            }}
-          >
-            <CardContent sx={{ py: 1, px: 2, '&:last-child': { pb: 1 } }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={currentPlayerIndex === index ? 'bold' : 'normal'}>
-                    {player.name}
-                    {currentPlayerIndex === index && !isCompleted && !isPaused && (
-                      <Typography component="span" color="primary.main" sx={{ ml: 1 }}>
-                        (Current)
-                      </Typography>
-                    )}
-                  </Typography>
-                </Box>
+      {/* Game options menu */}
+      <Menu
+        id="game-menu"
+        anchorEl={menuAnchorEl}
+        open={isMenuOpen}
+        onClose={handleMenuClose}
+        MenuListProps={{
+          'aria-labelledby': 'game-options',
+        }}
+      >
+        <MenuItem 
+          onClick={() => {
+            handleMenuClose();
+            setConfirmExitGame(true);
+          }}
+        >
+          <ListItemIcon>
+            <HomeIcon fontSize="small" />
+          </ListItemIcon>
+          Exit to Home
+        </MenuItem>
+        <MenuItem 
+          onClick={() => {
+            handleMenuClose();
+            setConfirmDeleteGame(true);
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          Delete Game
+        </MenuItem>
+      </Menu>
+
+      {/* Game Paused Alert */}
+      {isPaused && (
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 2 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small"
+              onClick={handleResumeGame}
+            >
+              Resume
+            </Button>
+          }
+        >
+          This game is currently paused.
+        </Alert>
+      )}
+
+      {/* Horizontal Player Score Cards */}
+      <Paper sx={{ mb: 2, overflow: 'hidden' }}>
+        <Grid container>
+          {players.map((player, index) => (
+            <Grid 
+              item 
+              xs={12 / players.length} 
+              key={player.id}
+              sx={{ 
+                borderRight: index < players.length - 1 ? 1 : 0, 
+                borderColor: 'divider',
+                backgroundColor: currentPlayerIndex === index ? 'rgba(25, 118, 210, 0.04)' : undefined
+              }}
+            >
+              <Box 
+                sx={{ 
+                  p: 1.5, 
+                  textAlign: 'center',
+                  borderTop: currentPlayerIndex === index ? 2 : 0,
+                  borderColor: 'primary.main'
+                }}
+              >
+                <Typography 
+                  variant="subtitle2" 
+                  noWrap 
+                  fontWeight={currentPlayerIndex === index ? 'bold' : 'normal'}
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    mb: 0.5
+                  }}
+                >
+                  {player.name}
+                </Typography>
                 <Typography 
                   variant="h4" 
                   fontWeight="bold"
@@ -546,13 +633,23 @@ const ActiveGame = () => {
                     undefined
                   }
                 >
-                  {player.score}
+                  {temporaryScore !== null && currentPlayerIndex === index 
+                    ? temporaryScore 
+                    : player.score}
                 </Typography>
+                {currentPlayerIndex === index && !isCompleted && !isPaused && (
+                  <Chip 
+                    label="Current" 
+                    color="primary" 
+                    size="small" 
+                    sx={{ mt: 0.5 }}
+                  />
+                )}
               </Box>
-            </CardContent>
-          </MotionCard>
-        ))}
-      </Stack>
+            </Grid>
+          ))}
+        </Grid>
+      </Paper>
       
       {/* Checkout Suggestion - Make it more visible */}
       {currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && !isCompleted && !isPaused && checkoutSuggestion && (
