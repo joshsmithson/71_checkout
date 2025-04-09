@@ -208,23 +208,41 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
 
   return (
     <>
-      {/* Running Total - More compact design */}
-      <Paper sx={{ p: 0.75, mb: 1, bgcolor: 'background.default', border: '1px solid', borderColor: 'divider' }}>
+      {/* Running Total - More visually interesting design */}
+      <Paper sx={{ 
+        p: 1, 
+        mb: 1, 
+        background: 'linear-gradient(to right, #e3f2fd, #bbdefb)',
+        borderRadius: '8px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }}>
         <Grid container alignItems="center" spacing={1}>
           <Grid item xs={4} sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-              This Turn
+            <Typography variant="body2" color="primary.dark" sx={{ fontWeight: 'medium', fontSize: '0.8rem' }}>
+              THIS TURN
             </Typography>
             <Typography 
-              variant="h4" 
+              variant="h3" 
               component="div" 
               fontWeight="bold" 
               className="scores"
-              color={wouldBust ? 'error.main' : 'inherit'}
-              sx={{ lineHeight: 1.2 }}
+              color={wouldBust ? 'error.main' : 'primary.dark'}
+              sx={{ lineHeight: 1.1 }}
             >
-              {totalScore} {wouldBust && <Typography variant="caption" component="span" color="error">BUST</Typography>}
+              {totalScore}
             </Typography>
+            {wouldBust && (
+              <Chip 
+                label="BUST" 
+                color="error" 
+                size="small" 
+                sx={{ 
+                  height: '20px', 
+                  mt: 0.5,
+                  '& .MuiChip-label': { px: 1, fontSize: '0.7rem', fontWeight: 'bold' }
+                }} 
+              />
+            )}
           </Grid>
           
           <Grid item xs={8}>
@@ -241,7 +259,12 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
                   color={score >= 40 ? 'primary' : 'default'}
                   variant="filled"
                   size="small"
-                  sx={{ mx: 0.5 }}
+                  sx={{ 
+                    mx: 0.5, 
+                    fontWeight: 'bold',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    animation: 'pulse 1s'
+                  }}
                 />
               ))}
               {[...Array(3 - dartScores.length)].map((_, index) => (
@@ -251,12 +274,17 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
                     width: '32px', 
                     height: '24px', 
                     border: '1px dashed', 
-                    borderColor: 'divider', 
+                    borderColor: 'primary.light', 
                     borderRadius: '16px',
                     mx: 0.5,
-                    opacity: 0.3
+                    opacity: 0.5,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
                   }}
-                />
+                >
+                  <Typography variant="caption" color="primary.light">●</Typography>
+                </Box>
               ))}
             </Box>
           </Grid>
@@ -264,11 +292,11 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
       </Paper>
 
       {/* Mobile-optimized Score Entry */}
-      <Paper sx={{ p: 1, mb: 1 }}>
+      <Paper sx={{ p: 1.5, mb: 1, borderRadius: '8px' }}>
         {/* Multiplier Selection - Select this FIRST */}
-        <Grid container spacing={1} sx={{ mb: 0.5 }}>
+        <Grid container spacing={1} sx={{ mb: 1 }}>
           <Grid item xs={3} sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'medium' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
               Step 1:
             </Typography>
           </Grid>
@@ -276,92 +304,104 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
             <Button
               variant={selectedMultiplier === 1 ? "contained" : "outlined"}
               color="primary"
-              size="small"
               fullWidth
               onClick={() => handleMultiplierSelect(1)}
-              sx={{ py: 0.5 }}
+              sx={{ py: 0.75, borderRadius: '8px' }}
             >
-              S
+              Single
             </Button>
           </Grid>
           <Grid item xs={3}>
             <Button
               variant={selectedMultiplier === 2 ? "contained" : "outlined"}
               color="primary"
-              size="small"
               fullWidth
               onClick={() => handleMultiplierSelect(2)}
-              sx={{ py: 0.5 }}
+              sx={{ py: 0.75, borderRadius: '8px' }}
             >
-              D
+              Double
             </Button>
           </Grid>
           <Grid item xs={3}>
             <Button
               variant={selectedMultiplier === 3 ? "contained" : "outlined"}
               color="primary"
-              size="small"
               fullWidth
               onClick={() => handleMultiplierSelect(3)}
-              sx={{ py: 0.5 }}
+              sx={{ py: 0.75, borderRadius: '8px' }}
             >
-              T
+              Triple
             </Button>
           </Grid>
         </Grid>
 
-        <Divider sx={{ my: 0.5 }} />
+        <Divider sx={{ my: 1 }} />
         
         {/* Number Selection - AFTER selecting multiplier */}
-        <Grid container sx={{ mb: 0.5 }}>
-          <Grid item xs={4}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'medium' }}>
-              Step 2: ({selectedMultiplier > 1 ? 
-                (selectedMultiplier === 2 ? 'Double' : 'Triple') : 
-                'Single'})
+        <Grid container sx={{ mb: 1 }}>
+          <Grid item xs={6}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
+              Step 2: {selectedMultiplier > 1 && 
+                <Typography component="span" color="primary.main" fontWeight="bold">
+                  {selectedMultiplier === 2 ? 'Double' : 'Triple'}
+                </Typography>
+              }
             </Typography>
           </Grid>
-          <Grid item xs={8} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <Grid item xs={6} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
             {/* Special quick buttons */}
-            <IconButton 
+            <Button 
+              variant="outlined"
+              color="secondary"
               onClick={() => handleNumberPress(25)} 
               disabled={dartScores.length >= 3}
               size="small" 
-              color="secondary"
-              sx={{ ml: 0.5, p: 0.5 }}
+              sx={{ ml: 0.5, minWidth: 0, px: 1 }}
             >
-              B
-            </IconButton>
-            <IconButton 
+              Bull
+            </Button>
+            <Button 
+              variant="outlined"
+              color="secondary"
               onClick={() => handleNumberPress(50)} 
               disabled={dartScores.length >= 3}
               size="small" 
-              color="secondary"
-              sx={{ ml: 0.5, p: 0.5 }}
+              sx={{ ml: 0.5, minWidth: 0, px: 1 }}
             >
-              DB
-            </IconButton>
-            <IconButton 
+              D-Bull
+            </Button>
+            <Button 
+              variant="outlined"
               onClick={() => handleNumberPress(0)} 
               disabled={dartScores.length >= 3}
               size="small"
-              sx={{ ml: 0.5, p: 0.5 }}
+              sx={{ ml: 0.5, minWidth: 0, px: 1 }}
             >
-              0
-            </IconButton>
+              Miss
+            </Button>
           </Grid>
         </Grid>
         
-        {/* Numbers Pad in a 5x4 grid layout for better use of space */}
-        <Grid container spacing={0.5} sx={{ mb: 0.5 }}>
+        {/* Numbers Pad in a 5x4 grid layout with larger buttons */}
+        <Grid container spacing={1} sx={{ mb: 1 }}>
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map(num => (
             <Grid item xs={2.4} key={num}>
               <Button
                 variant="outlined"
                 onClick={() => handleNumberPress(num)}
                 disabled={dartScores.length >= 3}
-                size="small"
-                sx={{ width: '100%', minWidth: 0, p: 0, minHeight: '28px', fontSize: '0.8rem' }}
+                sx={{ 
+                  width: '100%', 
+                  minWidth: 0, 
+                  py: 0.75,
+                  borderRadius: '8px',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    bgcolor: 'primary.light',
+                    color: 'white',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
               >
                 {num}
               </Button>
@@ -375,35 +415,33 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
             <IconButton 
               onClick={handleBackspace} 
               disabled={dartScores.length === 0}
-              size="small"
               color="error"
-              sx={{ p: 0.5 }}
+              sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}
             >
-              <BackspaceIcon fontSize="small" />
+              <BackspaceIcon />
             </IconButton>
           </Grid>
           <Grid item xs={2}>
             <IconButton 
               onClick={handleClear} 
               disabled={dartScores.length === 0}
-              size="small"
               color="error"
-              sx={{ p: 0.5 }}
+              sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}
             >
-              <DeleteIcon fontSize="small" />
+              <DeleteIcon />
             </IconButton>
           </Grid>
           <Grid item xs={8}>
             <Button
               variant="contained"
               color={wouldBust ? 'error' : 'success'}
-              size="small"
               onClick={handleSubmit}
               disabled={dartScores.length === 0}
               fullWidth
-              sx={{ py: 0.5 }}
+              startIcon={<PublishIcon />}
+              sx={{ py: 1, borderRadius: '8px' }}
             >
-              {wouldBust ? 'Bust' : 'Submit'}
+              {wouldBust ? 'Record Bust' : 'Submit Score'}
             </Button>
           </Grid>
         </Grid>
