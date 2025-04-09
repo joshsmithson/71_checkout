@@ -376,6 +376,24 @@ export const useSupabase = () => {
     });
   };
 
+  // Helper function to check if a dart value is valid
+  const isValidDart = (dartString: string): boolean => {
+    // Valid formats: S1-S20, D1-D20, T1-T20, 25, Bull
+    if (dartString === '25' || dartString === 'Bull') {
+      return true;
+    }
+    
+    // Check format for S/D/T + number
+    const prefixMatch = dartString.match(/^([SDT])(\d+)$/);
+    if (!prefixMatch) return false;
+    
+    const prefix = prefixMatch[1]; // S, D, or T
+    const value = parseInt(prefixMatch[2]);
+    
+    // Validate the number is between 1 and 20
+    return value >= 1 && value <= 20;
+  };
+
   // Checkout suggestions
   const getCheckoutSuggestion = useCallback(async (remainingScore: number): Promise<string[][] | null> => {
     // Client-side validation to ensure valid checkout scores
@@ -401,6 +419,9 @@ export const useSupabase = () => {
       return [[`D${remainingScore/2}`]];
     }
     
+    // Generate our local fallback suggestions
+    const fallbackSuggestions = generateFallbackCheckout(remainingScore);
+    
     // Try the database function for pre-determined checkout paths
     try {
       // Make TypeScript-compatible RPC call
@@ -413,33 +434,51 @@ export const useSupabase = () => {
       
       if (error) {
         console.error("Error fetching checkout suggestion:", error);
-        return generateFallbackCheckout(remainingScore);
+        return fallbackSuggestions;
       }
       
       if (!data || !Array.isArray(data) || data.length === 0) {
-        return generateFallbackCheckout(remainingScore);
+        return fallbackSuggestions;
       }
       
-      // Database returned one suggestion, so get another from our algorithm
-      const fallbackSuggestions = generateFallbackCheckout(remainingScore);
-      
-      // If the database suggestion differs from our fallback, return both
+      // Check if the database suggestion is valid (no impossible darts)
       const dbSuggestion = data;
-      const areEqual = 
-        fallbackSuggestions.length === 1 && 
-        fallbackSuggestions[0].length === dbSuggestion.length && 
-        fallbackSuggestions[0].every((val, idx) => val === dbSuggestion[idx]);
+      let isValidCheckout = true;
       
-      if (!areEqual) {
-        // Return both the database suggestion and our fallback
-        return [dbSuggestion, ...fallbackSuggestions];
+      for (const dart of dbSuggestion) {
+        if (!isValidDart(dart)) {
+          console.log(`Invalid dart detected - ${dart} in ${dbSuggestion.join(', ')}`);
+          isValidCheckout = false;
+          break;
+        }
       }
       
-      // Otherwise just return the database suggestion if they're identical
-      return [dbSuggestion];
+      // If the database suggestion is invalid, just use our fallback
+      if (!isValidCheckout) {
+        return fallbackSuggestions;
+      }
+      
+      // If the database suggestion is valid but differs from our fallback,
+      // add it as an additional option
+      const dbCheckout = [dbSuggestion];
+      
+      // Check if the database suggestion is already in our fallbacks
+      const isDuplicate = fallbackSuggestions.some(suggestion => 
+        suggestion.length === dbSuggestion.length && 
+        suggestion.every((dart, idx) => dart === dbSuggestion[idx])
+      );
+      
+      if (!isDuplicate) {
+        // Combine suggestions, but limit to 2 total
+        const combinedSuggestions = [dbSuggestion, ...fallbackSuggestions];
+        return combinedSuggestions.slice(0, 2);
+      }
+      
+      // If already a duplicate, just return our fallbacks
+      return fallbackSuggestions;
     } catch (err) {
       console.error("Exception fetching checkout suggestion:", err);
-      return generateFallbackCheckout(remainingScore);
+      return fallbackSuggestions;
     }
   }, []);
 
@@ -447,25 +486,35 @@ export const useSupabase = () => {
   const generateFallbackCheckout = (remainingScore: number): string[][] => {
     const suggestions: string[][] = [];
     
+    // Validate a suggestion before adding it
+    const validateAndAddSuggestion = (suggestion: string[]) => {
+      // Check if all darts in the suggestion are valid
+      if (suggestion.every(dart => isValidDart(dart))) {
+        suggestions.push(suggestion);
+      } else {
+        console.log(`Skipping invalid suggestion: ${suggestion.join(', ')}`);
+      }
+    };
+    
     // Specific case for checkout 115 and similar problematic checkouts
     if (remainingScore === 115) {
-      suggestions.push(['T20', '15', 'D20']);
-      suggestions.push(['T19', '18', 'D20']);
+      validateAndAddSuggestion(['T20', 'S15', 'D20']);
+      validateAndAddSuggestion(['T19', 'S18', 'D20']);
       return suggestions;
     }
     
     // Common checkouts that might not be in the database
     if (remainingScore === 113) {
-      suggestions.push(['T20', '13', 'D20']);
-      suggestions.push(['T19', '16', 'D20']);
+      validateAndAddSuggestion(['T20', 'S13', 'D20']);
+      validateAndAddSuggestion(['T19', 'S16', 'D20']);
       return suggestions;
     }
     
     // Special case for bullseye finish (50)
     if (remainingScore === 50) {
-      suggestions.push(['Bull']);
+      validateAndAddSuggestion(['Bull']);
       // Alternative route via D20 + D5
-      suggestions.push(['D20', 'D5']);
+      validateAndAddSuggestion(['D20', 'D5']);
       return suggestions;
     }
     
@@ -478,11 +527,11 @@ export const useSupabase = () => {
       // Try to use singles or doubles with bullseye
       const withBull = remainingScore - 50;
       if (withBull > 0 && withBull <= 20) {
-        suggestions.push([`S${withBull}`, 'Bull']);
+        validateAndAddSuggestion([`S${withBull}`, 'Bull']);
       } else if (withBull > 20 && withBull <= 40 && withBull % 2 === 0) {
-        suggestions.push([`D${withBull/2}`, 'Bull']);
+        validateAndAddSuggestion([`D${withBull/2}`, 'Bull']);
       } else if (withBull > 0 && withBull <= 60 && withBull % 3 === 0) {
-        suggestions.push([`T${withBull/3}`, 'Bull']);
+        validateAndAddSuggestion([`T${withBull/3}`, 'Bull']);
       }
     }
     
@@ -491,18 +540,18 @@ export const useSupabase = () => {
       // Try to use T20 and leave a manageable double
       const afterT20 = remainingScore - 60;
       if (afterT20 > 0 && afterT20 % 2 === 0 && afterT20 <= 40) {
-        suggestions.push(['T20', `D${afterT20/2}`]);
+        validateAndAddSuggestion(['T20', `D${afterT20/2}`]);
       }
       
       // Try with T19
       const afterT19 = remainingScore - 57;
       if (afterT19 > 0 && afterT19 % 2 === 0 && afterT19 <= 40) {
-        suggestions.push(['T19', `D${afterT19/2}`]);
+        validateAndAddSuggestion(['T19', `D${afterT19/2}`]);
       }
       
       // Try to leave bullseye finish
       if (afterT20 === 50) {
-        suggestions.push(['T20', 'Bull']);
+        validateAndAddSuggestion(['T20', 'Bull']);
       }
       
       // Try with various triples to leave a manageable double
@@ -515,7 +564,7 @@ export const useSupabase = () => {
         
         // Check for regular double finish
         if (remaining > 0 && remaining % 2 === 0 && remaining <= 40) {
-          suggestions.push([`T${i}`, `D${remaining/2}`]);
+          validateAndAddSuggestion([`T${i}`, `D${remaining/2}`]);
           
           // If we have enough suggestions, stop
           if (suggestions.length >= 2) break;
@@ -523,7 +572,7 @@ export const useSupabase = () => {
         
         // Check for bullseye finish
         if (remaining === 50) {
-          suggestions.push([`T${i}`, 'Bull']);
+          validateAndAddSuggestion([`T${i}`, 'Bull']);
           
           // If we have enough suggestions, stop
           if (suggestions.length >= 2) break;
@@ -535,7 +584,7 @@ export const useSupabase = () => {
     if (suggestions.length < 2) {
       // For even scores <= 40, suggest direct double
       if (remainingScore <= 40 && remainingScore % 2 === 0) {
-        suggestions.push([`D${remainingScore/2}`]);
+        validateAndAddSuggestion([`D${remainingScore/2}`]);
       }
       
       // For odd scores, need to hit a single to make it even
@@ -545,122 +594,99 @@ export const useSupabase = () => {
         const evenScore = remainingScore - singleNeeded;
         
         if (evenScore > 0 && evenScore <= 40) {
-          suggestions.push([`S${singleNeeded}`, `D${evenScore/2}`]);
+          validateAndAddSuggestion([`S${singleNeeded}`, `D${evenScore/2}`]);
         }
-        
-        // If we still have an odd score but > 40, find a single to hit to make it even and <= 40
-        const targetEvenScore = 40; // Highest valid double is D20
-        
-        // We need to remove enough to get to targetEvenScore
-        // Make sure we end up with an even number
-        const toRemove = remainingScore - targetEvenScore;
-        
-        if (toRemove > 0) {
-          // If toRemove is odd, we need to remove toRemove+1 to make the remaining score even
-          const actualToRemove = toRemove + (remainingScore % 2 !== targetEvenScore % 2 ? 1 : 0);
-          
-          // Try to find a triple to remove most of the score
-          if (actualToRemove > 20) {
-            const possibleTriples = [];
-            for (let i = 20; i >= 1; i--) {
-              const tripleValue = i * 3;
-              if (tripleValue <= actualToRemove) {
-                possibleTriples.push(i);
-              }
-            }
-            
-            for (const tripleNum of possibleTriples) {
-              const tripleValue = tripleNum * 3;
-              const remainder = actualToRemove - tripleValue;
-              
-              // If we can get the remainder with a single
-              if (remainder <= 20 && remainder >= 0) {
-                const remaining = remainingScore - tripleValue - remainder;
-                if (remaining % 2 === 0 && remaining > 0 && remaining <= 40) {
-                  // Skip S0 and use triple only if remainder is 0
-                  suggestions.push(remainder === 0 
-                    ? [`T${tripleNum}`, `D${remaining/2}`]
-                    : [`T${tripleNum}`, `S${remainder}`, `D${remaining/2}`]);
-                  
-                  // If we have enough suggestions, stop
-                  if (suggestions.length >= 2) break;
-                }
-              }
-            }
+      }
+      
+      // For scores > 40, try to get to a score <= 40 that we can finish with a double
+      if (remainingScore > 40) {
+        // Try single dart reductions
+        for (let i = 20; i >= 1; i--) {
+          // Try single
+          const afterSingle = remainingScore - i;
+          if (afterSingle > 0 && afterSingle % 2 === 0 && afterSingle <= 40) {
+            validateAndAddSuggestion([`S${i}`, `D${afterSingle/2}`]);
+            if (suggestions.length >= 2) break;
           }
           
-          // If not possible with triples, try doubles or singles
-          if (suggestions.length < 2) {
-            if (actualToRemove <= 40 && actualToRemove % 2 === 0) {
-              // Use a double
-              const remaining = remainingScore - actualToRemove;
-              suggestions.push([`D${actualToRemove/2}`, `D${remaining/2}`]);
-            } else if (actualToRemove <= 20) {
-              // Use a single
-              const remaining = remainingScore - actualToRemove;
-              suggestions.push([`S${actualToRemove}`, `D${remaining/2}`]);
-            }
+          // Try double
+          const afterDouble = remainingScore - (i * 2);
+          if (afterDouble > 0 && afterDouble % 2 === 0 && afterDouble <= 40) {
+            validateAndAddSuggestion([`D${i}`, `D${afterDouble/2}`]);
+            if (suggestions.length >= 2) break;
+          }
+          
+          // Try triple
+          const afterTriple = remainingScore - (i * 3);
+          if (afterTriple > 0 && afterTriple % 2 === 0 && afterTriple <= 40) {
+            validateAndAddSuggestion([`T${i}`, `D${afterTriple/2}`]);
+            if (suggestions.length >= 2) break;
           }
         }
       }
     }
     
     // If we still need more suggestions
-    if (suggestions.length < 2) {
-      // If all else fails, use a combination of darts that doesn't exceed D20
+    if (suggestions.length < 2 && remainingScore > 100) {
       // Try T20, T20, D approach
-      if (remainingScore > 100) {
-        const afterTwoT20s = remainingScore - 120;
-        if (afterTwoT20s > 0 && afterTwoT20s % 2 === 0 && afterTwoT20s <= 40) {
-          suggestions.push(['T20', 'T20', `D${afterTwoT20s/2}`]);
-        }
+      const afterTwoT20s = remainingScore - 120;
+      if (afterTwoT20s > 0 && afterTwoT20s % 2 === 0 && afterTwoT20s <= 40) {
+        validateAndAddSuggestion(['T20', 'T20', `D${afterTwoT20s/2}`]);
       }
       
-      // Last resort - break it down into 3 darts with a double finish <= D20
+      // Try other three-dart combinations if we don't have enough suggestions
       if (suggestions.length < 2) {
+        // Focus on commonly used doubles
         const preferredDoubles = [20, 16, 10, 8, 4, 2];
         
         for (const doubleValue of preferredDoubles) {
-          const remaining = remainingScore - (doubleValue * 2);
-          
-          // Try to find 2 darts that can score 'remaining' points
-          if (remaining >= 2 && remaining <= 40) {
-            suggestions.push([`S${remaining}`, `D${doubleValue}`]);
-            // If we have enough suggestions, stop
-            if (suggestions.length >= 2) break;
-          } else if (remaining > 40 && remaining <= 60) {
-            // Try single triple
-            for (let i = 20; i >= 1; i--) {
-              const tripleValue = i * 3;
-              const singleNeeded = remaining - tripleValue;
-              if (singleNeeded >= 1 && singleNeeded <= 20) {
-                suggestions.push([`T${i}`, `S${singleNeeded}`, `D${doubleValue}`]);
-                // If we have enough suggestions, stop
+          if (doubleValue > 0 && doubleValue <= 20) {
+            const remaining = remainingScore - (doubleValue * 2);
+            
+            // Try combinations of valid darts to reach the remaining score
+            if (remaining > 0 && remaining <= 40) {
+              validateAndAddSuggestion([`S${remaining}`, `D${doubleValue}`]);
+              if (suggestions.length >= 2) break;
+            } else if (remaining > 20 && remaining <= 40) {
+              validateAndAddSuggestion([`D${remaining/2}`, `D${doubleValue}`]);
+              if (suggestions.length >= 2) break;
+            } else {
+              // Try to find two darts that add up to the remaining score
+              for (let i = 20; i >= 1; i--) {
+                // Try triple + single
+                const afterTriple = remaining - (i * 3);
+                if (afterTriple > 0 && afterTriple <= 20) {
+                  validateAndAddSuggestion([`T${i}`, `S${afterTriple}`, `D${doubleValue}`]);
+                  if (suggestions.length >= 2) break;
+                }
+                
+                // Try double + single
+                const afterDouble = remaining - (i * 2);
+                if (afterDouble > 0 && afterDouble <= 20) {
+                  validateAndAddSuggestion([`D${i}`, `S${afterDouble}`, `D${doubleValue}`]);
+                  if (suggestions.length >= 2) break;
+                }
+                
+                // Try single + single
+                for (let j = 20; j >= i; j--) {
+                  if (i + j === remaining) {
+                    validateAndAddSuggestion([`S${i}`, `S${j}`, `D${doubleValue}`]);
+                    if (suggestions.length >= 2) break;
+                  }
+                }
                 if (suggestions.length >= 2) break;
               }
             }
-            if (suggestions.length >= 2) break;
-          } else if (remaining > 60 && remaining <= 120) {
-            // Use two triples
-            for (let i = 20; i >= 10; i--) {
-              for (let j = i; j >= 1; j--) {
-                if ((i * 3) + (j * 3) === remaining) {
-                  suggestions.push([`T${i}`, `T${j}`, `D${doubleValue}`]);
-                  // If we have enough suggestions, stop
-                  if (suggestions.length >= 2) break;
-                }
-              }
-              if (suggestions.length >= 2) break;
-            }
-            if (suggestions.length >= 2) break;
           }
+          if (suggestions.length >= 2) break;
         }
       }
     }
     
-    // Absolute last resort - aim for a D20 finish
+    // Absolute last resort - ensure we have at least one valid suggestion
     if (suggestions.length === 0) {
-      suggestions.push(['T20', `S${remainingScore-60-40 > 0 ? remainingScore-60-40 : 1}`, 'D20']);
+      // Safe fallback for any score - aim for D20, T20 and S1
+      validateAndAddSuggestion(['T20', 'S1', 'D20']);
     }
     
     return suggestions;
