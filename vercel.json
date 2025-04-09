@@ -19,6 +19,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!assets|sounds|favicon.svg|manifest.json|_redirects).*)", "destination": "/index.html" }
   ]
 } 

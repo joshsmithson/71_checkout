@@ -12,6 +12,8 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: true,
     minify: true,
+    // Add a copy plugin to ensure index.html gets copied for SPA routing
+    assetsInlineLimit: 0, // Don't inline assets as base64
     rollupOptions: {
       output: {
         manualChunks: {
