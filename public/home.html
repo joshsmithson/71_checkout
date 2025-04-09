@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dart Counter - Static Home</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: #121212;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 {
+      color: #E53935;
+      margin-bottom: 20px;
+    }
+    p {
+      margin-bottom: 20px;
+      max-width: 600px;
+    }
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 30px 0;
+    }
+    .btn {
+      background-color: #1E1E1E;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 16px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn.primary {
+      background-color: #E53935;
+    }
+    .card {
+      background: #1E1E1E;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      max-width: 500px;
+      width: 100%;
+    }
+    .card h2 {
+      color: #E53935;
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dart Counter</h1>
+  <p>A mobile-friendly web app for tracking scores during casual pub dart games.</p>
+  
+  <div class="card">
+    <h2>Welcome to Dart Counter</h2>
+    <p>This is a static HTML version of the app to verify that basic content serving is working correctly.</p>
+    <p>The regular app should load at the root URL.</p>
+  </div>
+  
+  <div class="nav">
+    <a href="/" class="btn primary">Go to App</a>
+    <a href="/basic.html" class="btn">Basic Test Page</a>
+    <a href="/debug.html" class="btn">Debug Page</a>
+  </div>
+  
+  <script>
+    // Simple script with no dependencies
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Static home page loaded successfully at: ' + new Date().toLocaleTimeString());
+    });
+  </script>
+</body>
+</html> 
