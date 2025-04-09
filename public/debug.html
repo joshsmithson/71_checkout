@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #121212;
+      color: white;
+    }
+    h1 {
+      color: #E53935;
+    }
+    pre {
+      background-color: #1E1E1E;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 10px 0;
+    }
+    button {
+      background-color: #E53935;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dart Counter Debug Page</h1>
+  <p>This is a simple HTML page to test if static files are being served correctly.</p>
+  
+  <div>
+    <h2>Environment Info</h2>
+    <pre id="env-info">Loading...</pre>
+  </div>
+  
+  <div>
+    <h2>Routing Test</h2>
+    <p>Current location: <span id="current-path"></span></p>
+    <button onclick="testFetch()">Test API Fetch</button>
+    <pre id="fetch-result">Click button to test...</pre>
+  </div>
+
+  <script>
+    // Display current path
+    document.getElementById('current-path').textContent = window.location.pathname;
+    
+    // Display environment info
+    const envInfo = {
+      userAgent: navigator.userAgent,
+      screenSize: `${window.innerWidth}x${window.innerHeight}`,
+      timestamp: new Date().toISOString(),
+      url: window.location.href
+    };
+    
+    document.getElementById('env-info').textContent = JSON.stringify(envInfo, null, 2);
+    
+    // Function to test fetch
+    function testFetch() {
+      const fetchResult = document.getElementById('fetch-result');
+      fetchResult.textContent = 'Fetching...';
+      
+      // Fetch the root path
+      fetch('/')
+        .then(response => {
+          return response.text().then(text => {
+            return {
+              status: response.status,
+              statusText: response.statusText,
+              contentType: response.headers.get('content-type'),
+              length: text.length,
+              preview: text.substring(0, 100) + '...'
+            };
+          });
+        })
+        .then(data => {
+          fetchResult.textContent = JSON.stringify(data, null, 2);
+        })
+        .catch(error => {
+          fetchResult.textContent = `Error: ${error.message}`;
+        });
+    }
+  </script>
+</body>
+</html> 

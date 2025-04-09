@@ -56,7 +56,47 @@
         z-index: 9999;
         display: none;
       }
+      .fallback-links {
+        margin-top: 30px;
+      }
+      .fallback-link {
+        display: inline-block;
+        margin: 0 10px;
+        padding: 10px 20px;
+        background-color: #333;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+      }
+      .fallback-link:hover {
+        background-color: #444;
+      }
     </style>
+    <!-- Immediate error detection -->
+    <script>
+      // Check if we have a valid document and window
+      if (typeof document === 'undefined' || typeof window === 'undefined') {
+        console.error('Critical: document or window undefined');
+      } else {
+        console.log('Document and window available');
+        
+        // Record page load start time
+        window._pageLoadStart = Date.now();
+        
+        // Create global diagnostic function
+        window._logDiagnostic = function(message) {
+          console.log('[Diagnostic] ' + message);
+          var diagEl = document.getElementById('diagnostic-log');
+          if (diagEl) {
+            var entry = document.createElement('div');
+            entry.textContent = new Date().toISOString().substr(11, 8) + ' - ' + message;
+            diagEl.appendChild(entry);
+          }
+        };
+        
+        window._logDiagnostic('Page loading started');
+      }
+    </script>
     <!-- SPA Routing Support -->
     <script type="text/javascript">
       // Handle SPA routing
@@ -78,10 +118,61 @@
         <div class="loading-spinner"></div>
         <h1>Dart Counter</h1>
         <p>Loading application...</p>
+        <div id="diagnostic-log" style="text-align: left; font-family: monospace; margin-top: 20px; background: #1a1a1a; padding: 10px; max-width: 600px; max-height: 200px; overflow-y: auto;"></div>
+        
+        <div class="fallback-links">
+          <a href="/basic.html" class="fallback-link">Basic Version</a>
+          <a href="/debug.html" class="fallback-link">Debug Page</a>
+        </div>
       </div>
     </div>
     <div id="error-container"></div>
+    
+    <!-- Initialization diagnostic -->
+    <script>
+      window._logDiagnostic('DOM loaded, preparing to load application');
+      
+      // Check for basic browser features
+      if (!window.fetch) {
+        window._logDiagnostic('ERROR: fetch API not available');
+        document.getElementById('error-container').style.display = 'block';
+        document.getElementById('error-container').innerHTML = '<p>Your browser does not support modern features needed for this app.</p>';
+      }
+      
+      // Check if modules are supported
+      if (typeof HTMLScriptElement.supports !== 'function' || !HTMLScriptElement.supports('type', 'module')) {
+        window._logDiagnostic('ERROR: ES Modules not supported');
+        document.getElementById('error-container').style.display = 'block';
+        document.getElementById('error-container').innerHTML += '<p>Your browser does not support ES Modules.</p>';
+      }
+    </script>
+    
+    <script type="module">
+      window._logDiagnostic('Module script executing');
+      
+      // Test if basic module features work
+      try {
+        const testObj = { test: 'Module initialized' };
+        window._logDiagnostic(testObj.test);
+        
+        // Check if import works
+        import('/src/main.tsx').catch(err => {
+          window._logDiagnostic('Failed to load main module: ' + err.message);
+          document.getElementById('error-container').style.display = 'block';
+          document.getElementById('error-container').innerHTML = `
+            <h3>Error Loading Application</h3>
+            <p>There was a problem loading the application:</p>
+            <pre>${err.message}</pre>
+          `;
+        });
+      } catch (err) {
+        window._logDiagnostic('Module script error: ' + err.message);
+      }
+    </script>
+    
+    <!-- Main application entry point -->
     <script type="module" src="/src/main.tsx"></script>
+    
     <!-- Fallback for module loading errors -->
     <script nomodule>
       // This only runs if the browser doesn't support ES modules or if there's a module error

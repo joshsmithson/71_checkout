@@ -3,6 +3,31 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline, Box, Typography, Button } from '@mui/material';
 import { AnimatePresence } from 'framer-motion';
 
+// Debug initialization - immediately execute
+console.log('[App] Initial load started');
+try {
+  // Check for environment variables early
+  const envCheck = {
+    NODE_ENV: process.env.NODE_ENV,
+    VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ? 'defined' : 'undefined',
+    VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? 'defined' : 'undefined',
+    location: typeof window !== 'undefined' ? window.location.href : 'SSR'
+  };
+  console.log('[App] Environment check:', envCheck);
+  
+  // Check if document is defined (this should always work in a browser)
+  if (typeof document !== 'undefined') {
+    console.log('[App] Document is defined, DOM is available');
+    
+    // Add a global error handler for debugging
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('[App] Unhandled Promise Rejection:', event.reason);
+    });
+  }
+} catch (error) {
+  console.error('[App] Error during initialization:', error);
+}
+
 // Contexts
 import { AuthProvider } from '@/contexts/AuthContext';
 import { UIProvider } from '@/contexts/UIContext';
