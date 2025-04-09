@@ -73,7 +73,6 @@ const ActiveGame = () => {
     updateGameStatus,
     setGameWinner,
     deleteGame,
-    deleteTurn,
     loading,
     getFriends
   } = useSupabase();
@@ -84,7 +83,7 @@ const ActiveGame = () => {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [temporaryScore, setTemporaryScore] = useState<number | null>(null);
-  const [checkoutSuggestion, setCheckoutSuggestion] = useState<string[] | null>(null);
+  const [checkoutSuggestion, setCheckoutSuggestion] = useState<string[][] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [turnNumber, setTurnNumber] = useState(1);
@@ -100,10 +99,6 @@ const ActiveGame = () => {
   // Game options menu
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(menuAnchorEl);
-  
-  // Add new state for confirming turn deletion
-  const [confirmDeleteTurn, setConfirmDeleteTurn] = useState<Turn | null>(null);
-  const [isDeletingTurn, setIsDeletingTurn] = useState(false);
   
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setMenuAnchorEl(event.currentTarget);
@@ -206,7 +201,7 @@ const ActiveGame = () => {
         // Get checkout suggestion for current player
         if (playerArray.length > 0) {
           const currentPlayer = playerArray[currentPlayerIndex];
-          if (currentPlayer && currentPlayer.score <= 170) {
+          if (currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1) {
             const suggestion = await getCheckoutSuggestion(currentPlayer.score);
             setCheckoutSuggestion(suggestion);
           } else {
@@ -484,81 +479,6 @@ const ActiveGame = () => {
     navigate('/');
   };
 
-  // Add new function to handle turn deletion
-  const handleDeleteTurn = async () => {
-    if (!confirmDeleteTurn || !id) {
-      setConfirmDeleteTurn(null);
-      return;
-    }
-
-    setIsDeletingTurn(true);
-    try {
-      // Delete the turn in the database
-      await deleteTurn(confirmDeleteTurn.id);
-
-      // Update local state
-      // 1. Remove the turn from turns array
-      const updatedTurns = turns.filter(t => t.id !== confirmDeleteTurn.id);
-      setTurns(updatedTurns);
-
-      // 2. Recalculate player scores based on remaining turns
-      // Create a copy of players with their starting scores
-      const resetPlayers = players.map(player => ({
-        ...player,
-        score: player.startingScore
-      }));
-
-      // Apply all remaining turns to calculate current scores
-      updatedTurns.forEach(turn => {
-        const playerIndex = resetPlayers.findIndex(
-          p => p.id === turn.player_id && p.type === turn.player_type
-        );
-        if (playerIndex !== -1) {
-          resetPlayers[playerIndex].score = turn.remaining;
-        }
-      });
-
-      // Update players state
-      setPlayers(resetPlayers);
-
-      // 3. Determine the current player and turn number
-      if (updatedTurns.length === 0) {
-        // If no turns left, reset to first player and turn 1
-        setCurrentPlayerIndex(0);
-        setTurnNumber(1);
-      } else {
-        // Find the last player who took a turn
-        const lastTurn = updatedTurns[updatedTurns.length - 1];
-        const lastPlayerIndex = resetPlayers.findIndex(
-          p => p.id === lastTurn.player_id && p.type === lastTurn.player_type
-        );
-        
-        // Next player is the one after the last player
-        setCurrentPlayerIndex((lastPlayerIndex + 1) % resetPlayers.length);
-        
-        // Set turn number
-        setTurnNumber(Math.floor(updatedTurns.length / resetPlayers.length) + 1);
-      }
-
-      // 4. Update checkout suggestion for current player
-      const currentPlayer = resetPlayers[currentPlayerIndex];
-      if (currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1) {
-        const suggestion = await getCheckoutSuggestion(currentPlayer.score);
-        setCheckoutSuggestion(suggestion);
-      } else {
-        setCheckoutSuggestion(null);
-      }
-
-      // Close the dialog
-      setConfirmDeleteTurn(null);
-    } catch (error) {
-      console.error('Error deleting turn:', error);
-      setError('Failed to delete turn. Please try again.');
-    } finally {
-      setIsDeletingTurn(false);
-    }
-  };
-
   // Display loading state
   if (isLoading) {
     return (
@@ -759,7 +679,7 @@ const ActiveGame = () => {
       </Paper>
       
       {/* Checkout Suggestion - More prominent */}
-      {currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && !isCompleted && !isPaused && checkoutSuggestion && (
+      {currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && !isCompleted && !isPaused && checkoutSuggestion && checkoutSuggestion.length > 0 && (
         <Paper 
           sx={{ 
             p: 1.25, 
@@ -773,50 +693,59 @@ const ActiveGame = () => {
           }}
         >
           <Grid container alignItems="center" spacing={1}>
-            <Grid item xs={5}>
+            <Grid item xs={4}>
               <Typography sx={{ color: 'grey.300', fontWeight: 'medium', fontSize: '0.85rem' }}>
-                Checkout Path:
+                Checkout Path{checkoutSuggestion.length > 1 ? 's' : ''}:
               </Typography>
               <Typography color="primary.main" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
                 {currentPlayer.score}
               </Typography>
             </Grid>
-            <Grid item xs={7}>
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                gap: 0.5,
-                flexWrap: 'wrap' 
-              }}>
-                {checkoutSuggestion.map((dart, index) => {
-                  // Use different colors based on dart type (T/D/S)
-                  const isDartTriple = dart.startsWith('T');
-                  const isDartDouble = dart.startsWith('D');
-                  const isBull = dart === 'Bull';
-                  
-                  return (
-                    <Chip 
-                      key={index} 
-                      label={dart} 
-                      variant="filled" 
-                      color={isDartTriple ? "error" : isDartDouble ? "primary" : "default"}
-                      size="medium"
-                      sx={{ 
-                        fontWeight: 'bold',
-                        border: isDartTriple || isDartDouble || isBull ? 1 : 0,
-                        borderColor: isBull ? 'error.main' : 'transparent',
-                        bgcolor: isBull ? 'background.paper' : undefined,
-                        color: isBull ? 'error.main' : undefined,
-                        fontSize: '0.85rem',
-                        mb: 0.5
-                      }}
-                    />
-                  );
-                })}
-              </Box>
+            <Grid item xs={8}>
+              {checkoutSuggestion.map((suggestion, suggestionIndex) => (
+                <Box key={suggestionIndex} sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'flex-start', 
+                  gap: 0.5,
+                  flexWrap: 'wrap',
+                  mt: suggestionIndex > 0 ? 1 : 0,
+                  mb: 0.5
+                }}>
+                  {suggestionIndex > 0 && (
+                    <Typography variant="caption" color="grey.500" sx={{ width: '100%', mb: 0.5 }}>
+                      Alternative:
+                    </Typography>
+                  )}
+                  {suggestion.map((dart, dartIndex) => {
+                    // Use different colors based on dart type (T/D/S)
+                    const isDartTriple = dart.startsWith('T');
+                    const isDartDouble = dart.startsWith('D');
+                    const isBull = dart === 'Bull';
+                    
+                    return (
+                      <Chip 
+                        key={dartIndex} 
+                        label={dart} 
+                        variant="filled" 
+                        color={isDartTriple ? "error" : isDartDouble ? "primary" : "default"}
+                        size="medium"
+                        sx={{ 
+                          fontWeight: 'bold',
+                          border: isDartTriple || isDartDouble || isBull ? 1 : 0,
+                          borderColor: isBull ? 'error.main' : 'transparent',
+                          bgcolor: isBull ? 'background.paper' : undefined,
+                          color: isBull ? 'error.main' : undefined,
+                          fontSize: '0.85rem',
+                          mb: 0.5
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+              ))}
               {checkoutSuggestion.length > 0 && (
                 <Typography variant="caption" color="grey.500" sx={{ textAlign: 'center', display: 'block', mt: 0.5 }}>
-                  Suggested checkout path
+                  Suggested checkout path{checkoutSuggestion.length > 1 ? 's' : ''}
                 </Typography>
               )}
             </Grid>
@@ -929,19 +858,9 @@ const ActiveGame = () => {
                 
                 return (
                   <Box key={index} sx={{ py: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="subtitle2">
-                        {player?.name || 'Unknown'} - Turn {Math.floor(index / players.length) + 1}
-                      </Typography>
-                      <IconButton 
-                        size="small" 
-                        color="error"
-                        onClick={() => setConfirmDeleteTurn(turn)}
-                        disabled={isCompleted}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
+                    <Typography variant="subtitle2">
+                      {player?.name || 'Unknown'} - Turn {Math.floor(index / players.length) + 1}
+                    </Typography>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2" color="text.secondary">
                         {turn.scores.join(' + ')} = {turnScore}
@@ -958,36 +877,6 @@ const ActiveGame = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowTurnHistory(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Add Delete Turn Confirmation */}
-      <Dialog
-        open={!!confirmDeleteTurn}
-        onClose={() => setConfirmDeleteTurn(null)}
-      >
-        <DialogTitle>Delete Turn?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete this turn? This will recalculate all player scores.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setConfirmDeleteTurn(null)} 
-            disabled={isDeletingTurn}
-          >
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            color="error" 
-            onClick={handleDeleteTurn}
-            disabled={isDeletingTurn}
-            startIcon={isDeletingTurn ? <CircularProgress size={20} /> : <DeleteIcon />}
-          >
-            {isDeletingTurn ? 'Deleting...' : 'Delete Turn'}
-          </Button>
         </DialogActions>
       </Dialog>
 
