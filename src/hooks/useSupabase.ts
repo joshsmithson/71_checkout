@@ -394,93 +394,33 @@ export const useSupabase = () => {
     return value >= 1 && value <= 20;
   };
 
-  // Checkout suggestions
-  const getCheckoutSuggestion = useCallback(async (remainingScore: number): Promise<string[][] | null> => {
-    // Client-side validation to ensure valid checkout scores
-    if (remainingScore > 170 || remainingScore <= 1) {
-      return null;
-    }
+  // Helper function to get the numeric value of a dart
+  const getDartValue = (dartString: string): number => {
+    if (dartString === 'Bull') return 50;
+    if (dartString === '25') return 25;
     
-    // For scores not divisible by 2 (require a single), ensure it's a valid checkout
-    if (remainingScore % 2 !== 0 && remainingScore > 2) {
-      // Must hit an odd single to make the score even
-      const needSingle = remainingScore % 2;
-      const evenScore = remainingScore - needSingle;
-      
-      if (evenScore > 0 && evenScore <= 40) {
-        // Only return one suggestion for simple odd-single + double finish
-        return [[`S${needSingle}`, `D${evenScore/2}`]];
-      }
-    }
+    const prefixMatch = dartString.match(/^([SDT])(\d+)$/);
+    if (!prefixMatch) return 0;
     
-    // Simple checkouts (score <= 40 and even)
-    if (remainingScore <= 40 && remainingScore % 2 === 0) {
-      // Only one possible checkout for simple doubles
-      return [[`D${remainingScore/2}`]];
-    }
+    const prefix = prefixMatch[1]; // S, D, or T
+    const value = parseInt(prefixMatch[2]);
     
-    // Generate our local fallback suggestions
-    const fallbackSuggestions = generateFallbackCheckout(remainingScore);
+    if (prefix === 'S') return value;
+    if (prefix === 'D') return value * 2;
+    if (prefix === 'T') return value * 3;
     
-    // Try the database function for pre-determined checkout paths
-    try {
-      // Make TypeScript-compatible RPC call
-      const { data, error } = await supabase.rpc('suggest_checkout', { 
-        remaining_score: remainingScore 
-      }) as unknown as { 
-        data: string[] | null; 
-        error: Error | null 
-      };
-      
-      if (error) {
-        console.error("Error fetching checkout suggestion:", error);
-        return fallbackSuggestions;
-      }
-      
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        return fallbackSuggestions;
-      }
-      
-      // Check if the database suggestion is valid (no impossible darts)
-      const dbSuggestion = data;
-      let isValidCheckout = true;
-      
-      for (const dart of dbSuggestion) {
-        if (!isValidDart(dart)) {
-          console.log(`Invalid dart detected - ${dart} in ${dbSuggestion.join(', ')}`);
-          isValidCheckout = false;
-          break;
-        }
-      }
-      
-      // If the database suggestion is invalid, just use our fallback
-      if (!isValidCheckout) {
-        return fallbackSuggestions;
-      }
-      
-      // If the database suggestion is valid but differs from our fallback,
-      // add it as an additional option
-      const dbCheckout = [dbSuggestion];
-      
-      // Check if the database suggestion is already in our fallbacks
-      const isDuplicate = fallbackSuggestions.some(suggestion => 
-        suggestion.length === dbSuggestion.length && 
-        suggestion.every((dart, idx) => dart === dbSuggestion[idx])
-      );
-      
-      if (!isDuplicate) {
-        // Combine suggestions, but limit to 2 total
-        const combinedSuggestions = [dbSuggestion, ...fallbackSuggestions];
-        return combinedSuggestions.slice(0, 2);
-      }
-      
-      // If already a duplicate, just return our fallbacks
-      return fallbackSuggestions;
-    } catch (err) {
-      console.error("Exception fetching checkout suggestion:", err);
-      return fallbackSuggestions;
+    return 0;
+  };
+
+  // Helper function to verify a checkout suggestion adds up to the target score
+  const verifyCheckoutTotal = (suggestion: string[], targetScore: number): boolean => {
+    const total = suggestion.reduce((sum, dart) => sum + getDartValue(dart), 0);
+    if (total !== targetScore) {
+      console.log(`Invalid checkout suggestion: ${suggestion.join(', ')} = ${total}, not ${targetScore}`);
+      return false;
     }
-  }, []);
+    return true;
+  };
 
   // Helper function to generate fallback checkout suggestions
   const generateFallbackCheckout = (remainingScore: number): string[][] => {
@@ -489,32 +429,198 @@ export const useSupabase = () => {
     // Validate a suggestion before adding it
     const validateAndAddSuggestion = (suggestion: string[]) => {
       // Check if all darts in the suggestion are valid
-      if (suggestion.every(dart => isValidDart(dart))) {
+      if (suggestion.every(dart => isValidDart(dart)) && 
+          verifyCheckoutTotal(suggestion, remainingScore)) {
         suggestions.push(suggestion);
       } else {
         console.log(`Skipping invalid suggestion: ${suggestion.join(', ')}`);
       }
     };
     
-    // Specific case for checkout 115 and similar problematic checkouts
-    if (remainingScore === 115) {
-      validateAndAddSuggestion(['T20', 'S15', 'D20']);
-      validateAndAddSuggestion(['T19', 'S18', 'D20']);
-      return suggestions;
-    }
+    // Known good checkout paths for specific scores
+    // These are common and well-established checkout paths in darts
+    const knownCheckouts: Record<number, string[][]> = {
+      170: [['T20', 'T20', 'Bull']],
+      167: [['T20', 'T19', 'Bull']],
+      164: [['T20', 'T18', 'Bull']],
+      161: [['T20', 'T17', 'Bull']],
+      160: [['T20', 'T20', 'D20']],
+      158: [['T20', 'T20', 'D19']],
+      157: [['T20', 'T19', 'D20']],
+      156: [['T20', 'T20', 'D18']],
+      155: [['T20', 'T19', 'D19']],
+      154: [['T20', 'T18', 'D20']],
+      153: [['T20', 'T19', 'D18']],
+      152: [['T20', 'T20', 'D16']],
+      151: [['T20', 'T17', 'D20']],
+      150: [['T20', 'T18', 'D18']],
+      149: [['T20', 'T19', 'D16']],
+      148: [['T20', 'T20', 'D14']],
+      147: [['T20', 'T17', 'D18']],
+      146: [['T20', 'T18', 'D16']],
+      145: [['T20', 'T19', 'D14']],
+      144: [['T20', 'T20', 'D12']],
+      143: [['T20', 'T17', 'D16']],
+      142: [['T20', 'T14', 'D20']],
+      141: [['T20', 'T19', 'D12']],
+      140: [['T20', 'T20', 'D10']],
+      139: [['T20', 'T13', 'D20']],
+      138: [['T20', 'T18', 'D12']],
+      137: [['T20', 'T19', 'D10']],
+      136: [['T20', 'T20', 'D8']],
+      135: [['T20', 'T15', 'D15']],
+      134: [['T20', 'T14', 'D16']],
+      133: [['T20', 'T19', 'D8']],
+      132: [['T20', 'T16', 'D12']],
+      131: [['T20', 'T13', 'D16']],
+      130: [['T20', 'T18', 'D8']],
+      129: [['T19', 'T16', 'D12']],
+      128: [['T20', 'T16', 'D10']],
+      127: [['T20', 'T17', 'D8']],
+      126: [['T19', 'T19', 'D6']],
+      125: [['T20', 'T15', 'D10']],
+      124: [['T20', 'T16', 'D8']],
+      123: [['T19', 'T16', 'D9']],
+      122: [['T18', 'T18', 'D7']],
+      121: [['T20', 'S11', 'D20'], ['T17', 'T10', 'D20']],
+      120: [['T20', 'S20', 'D20']],
+      119: [['T19', 'T12', 'D13']],
+      118: [['T20', 'S18', 'D20']],
+      117: [['T20', 'S17', 'D20']],
+      116: [['T20', 'S16', 'D20']],
+      115: [['T20', 'S15', 'D20'], ['T19', 'S18', 'D20']],
+      113: [['T20', 'S13', 'D20'], ['T19', 'S16', 'D20']],
+      112: [['T20', 'S12', 'D20']],
+      111: [['T20', 'S11', 'D20']],
+      110: [['T20', 'S10', 'D20']],
+      109: [['T20', 'S9', 'D20']],
+      108: [['T20', 'S8', 'D20']],
+      107: [['T19', 'S10', 'D20']],
+      106: [['T20', 'S6', 'D20']],
+      105: [['T20', 'S5', 'D20']],
+      104: [['T20', 'S4', 'D20']],
+      103: [['T19', 'S6', 'D20']],
+      102: [['T20', 'S2', 'D20']],
+      101: [['T17', 'S10', 'D20']],
+      100: [['T20', 'D20']],
+      99: [['T19', 'S10', 'D16']],
+      98: [['T20', 'D19']],
+      97: [['T19', 'D20']],
+      96: [['T20', 'D18']],
+      95: [['T19', 'D19']],
+      94: [['T18', 'D20']],
+      93: [['T19', 'D18']],
+      92: [['T20', 'D16']],
+      91: [['T17', 'D20']],
+      90: [['T18', 'D18']],
+      89: [['T19', 'D16']],
+      88: [['T20', 'D14']],
+      87: [['T17', 'D18']],
+      86: [['T18', 'D16']],
+      85: [['T15', 'D20']],
+      84: [['T20', 'D12']],
+      83: [['T17', 'D16']],
+      82: [['T14', 'D20']],
+      81: [['T19', 'D12']],
+      80: [['T20', 'D10']],
+      79: [['T13', 'D20']],
+      78: [['T18', 'D12']],
+      77: [['T19', 'D10']],
+      76: [['T20', 'D8']],
+      75: [['T15', 'D15']],
+      74: [['T14', 'D16']],
+      73: [['T19', 'D8']],
+      72: [['T16', 'D12']],
+      71: [['T13', 'D16']],
+      70: [['T10', 'D20']],
+      69: [['T19', 'D6']],
+      68: [['T20', 'D4']],
+      67: [['T17', 'D8']],
+      66: [['T10', 'D18']],
+      65: [['T19', 'D4']],
+      64: [['T16', 'D8']],
+      63: [['T13', 'D12']],
+      62: [['T10', 'D16']],
+      61: [['T15', 'D8']],
+      60: [['S20', 'D20']],
+      59: [['S19', 'D20']],
+      58: [['S18', 'D20']],
+      57: [['S17', 'D20']],
+      56: [['T16', 'D4']],
+      55: [['S15', 'D20']],
+      54: [['S14', 'D20']],
+      53: [['S13', 'D20']],
+      52: [['T12', 'D8']],
+      51: [['S11', 'D20']],
+      50: [['Bull'], ['S10', 'D20']],
+      49: [['S9', 'D20']],
+      48: [['S16', 'D16']],
+      47: [['S15', 'D16']],
+      46: [['S6', 'D20']],
+      45: [['S13', 'D16']],
+      44: [['S12', 'D16']],
+      43: [['S11', 'D16']],
+      42: [['S10', 'D16']],
+      41: [['S9', 'D16']],
+      40: [['D20']],
+      39: [['S7', 'D16']],
+      38: [['D19']],
+      37: [['S5', 'D16']],
+      36: [['D18']],
+      35: [['S3', 'D16']],
+      34: [['D17']],
+      33: [['S1', 'D16']],
+      32: [['D16']],
+      31: [['S15', 'D8']],
+      30: [['D15']],
+      29: [['S13', 'D8']],
+      28: [['D14']],
+      27: [['S11', 'D8']],
+      26: [['D13']],
+      25: [['S9', 'D8']],
+      24: [['D12']],
+      23: [['S7', 'D8']],
+      22: [['D11']],
+      21: [['S5', 'D8']],
+      20: [['D10']],
+      19: [['S3', 'D8']],
+      18: [['D9']],
+      17: [['S1', 'D8']],
+      16: [['D8']],
+      15: [['S7', 'D4']],
+      14: [['D7']],
+      13: [['S5', 'D4']],
+      12: [['D6']],
+      11: [['S3', 'D4']],
+      10: [['D5']],
+      9: [['S1', 'D4']],
+      8: [['D4']],
+      7: [['S3', 'D2']],
+      6: [['D3']],
+      5: [['S1', 'D2']],
+      4: [['D2']],
+      3: [['S1', 'D1']],
+      2: [['D1']]
+    };
     
-    // Common checkouts that might not be in the database
-    if (remainingScore === 113) {
-      validateAndAddSuggestion(['T20', 'S13', 'D20']);
-      validateAndAddSuggestion(['T19', 'S16', 'D20']);
-      return suggestions;
+    // If we have a known checkout for this score, use it
+    if (knownCheckouts[remainingScore]) {
+      // Always validate known checkouts too, just in case
+      knownCheckouts[remainingScore].forEach(checkout => {
+        validateAndAddSuggestion(checkout);
+      });
+      
+      // If we have valid suggestions from known checkouts, return them
+      if (suggestions.length > 0) {
+        return suggestions;
+      }
     }
     
     // Special case for bullseye finish (50)
     if (remainingScore === 50) {
       validateAndAddSuggestion(['Bull']);
       // Alternative route via D20 + D5
-      validateAndAddSuggestion(['D20', 'D5']);
+      validateAndAddSuggestion(['S10', 'D20']);
       return suggestions;
     }
     
@@ -554,28 +660,23 @@ export const useSupabase = () => {
         validateAndAddSuggestion(['T20', 'Bull']);
       }
       
-      // Try with various triples to leave a manageable double
-      for (let i = 20; i >= 10; i--) {
-        // Skip T20 and T19 as we've already tried them
-        if (i === 20 || i === 19) continue;
-        
-        const tripleScore = i * 3;
-        const remaining = remainingScore - tripleScore;
-        
-        // Check for regular double finish
-        if (remaining > 0 && remaining % 2 === 0 && remaining <= 40) {
-          validateAndAddSuggestion([`T${i}`, `D${remaining/2}`]);
+      // For 3-dart finishes, try standard combinations
+      if (remainingScore <= 170) {
+        for (let t = 20; t >= 1; t--) {
+          // Try triple followed by single and double
+          const tripleValue = t * 3;
+          const afterTriple = remainingScore - tripleValue;
           
-          // If we have enough suggestions, stop
-          if (suggestions.length >= 2) break;
-        }
-        
-        // Check for bullseye finish
-        if (remaining === 50) {
-          validateAndAddSuggestion([`T${i}`, 'Bull']);
-          
-          // If we have enough suggestions, stop
-          if (suggestions.length >= 2) break;
+          if (afterTriple > 2) { // Need at least a S1 + D1
+            for (let s = 20; s >= 1; s--) {
+              const afterSingle = afterTriple - s;
+              if (afterSingle > 0 && afterSingle % 2 === 0 && afterSingle <= 40) {
+                validateAndAddSuggestion([`T${t}`, `S${s}`, `D${afterSingle/2}`]);
+                if (suggestions.length >= 2) break;
+              }
+            }
+            if (suggestions.length >= 2) break;
+          }
         }
       }
     }
@@ -633,64 +734,155 @@ export const useSupabase = () => {
       if (afterTwoT20s > 0 && afterTwoT20s % 2 === 0 && afterTwoT20s <= 40) {
         validateAndAddSuggestion(['T20', 'T20', `D${afterTwoT20s/2}`]);
       }
-      
-      // Try other three-dart combinations if we don't have enough suggestions
-      if (suggestions.length < 2) {
-        // Focus on commonly used doubles
-        const preferredDoubles = [20, 16, 10, 8, 4, 2];
-        
-        for (const doubleValue of preferredDoubles) {
-          if (doubleValue > 0 && doubleValue <= 20) {
-            const remaining = remainingScore - (doubleValue * 2);
-            
-            // Try combinations of valid darts to reach the remaining score
-            if (remaining > 0 && remaining <= 40) {
-              validateAndAddSuggestion([`S${remaining}`, `D${doubleValue}`]);
-              if (suggestions.length >= 2) break;
-            } else if (remaining > 20 && remaining <= 40) {
-              validateAndAddSuggestion([`D${remaining/2}`, `D${doubleValue}`]);
-              if (suggestions.length >= 2) break;
-            } else {
-              // Try to find two darts that add up to the remaining score
-              for (let i = 20; i >= 1; i--) {
-                // Try triple + single
-                const afterTriple = remaining - (i * 3);
-                if (afterTriple > 0 && afterTriple <= 20) {
-                  validateAndAddSuggestion([`T${i}`, `S${afterTriple}`, `D${doubleValue}`]);
-                  if (suggestions.length >= 2) break;
-                }
-                
-                // Try double + single
-                const afterDouble = remaining - (i * 2);
-                if (afterDouble > 0 && afterDouble <= 20) {
-                  validateAndAddSuggestion([`D${i}`, `S${afterDouble}`, `D${doubleValue}`]);
-                  if (suggestions.length >= 2) break;
-                }
-                
-                // Try single + single
-                for (let j = 20; j >= i; j--) {
-                  if (i + j === remaining) {
-                    validateAndAddSuggestion([`S${i}`, `S${j}`, `D${doubleValue}`]);
-                    if (suggestions.length >= 2) break;
-                  }
-                }
-                if (suggestions.length >= 2) break;
-              }
-            }
-          }
-          if (suggestions.length >= 2) break;
-        }
-      }
     }
     
     // Absolute last resort - ensure we have at least one valid suggestion
     if (suggestions.length === 0) {
-      // Safe fallback for any score - aim for D20, T20 and S1
-      validateAndAddSuggestion(['T20', 'S1', 'D20']);
+      // Try a safe approach with a triple 19 followed by appropriate darts
+      const remaining = remainingScore - 57; // T19 = 57
+      if (remaining > 0) {
+        // Try to find a double finish
+        if (remaining % 2 === 0 && remaining <= 40) {
+          validateAndAddSuggestion(['T19', `D${remaining/2}`]);
+        } else {
+          // Try to find a single + double finish
+          for (let s = 20; s >= 1; s--) {
+            const afterSingle = remaining - s;
+            if (afterSingle > 0 && afterSingle % 2 === 0 && afterSingle <= 40) {
+              validateAndAddSuggestion(['T19', `S${s}`, `D${afterSingle/2}`]);
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // If still no suggestions, just provide any mathematically correct checkout
+    if (suggestions.length === 0) {
+      console.log(`No standard checkout found for ${remainingScore}. Generating alternative.`);
+      
+      // Try to generate a basic checkout with standard values
+      if (remainingScore <= 60) {
+        for (let i = 20; i >= 1; i--) {
+          for (let j = 20; j >= 1; j--) {
+            if (i + (j * 2) === remainingScore) {
+              validateAndAddSuggestion([`S${i}`, `D${j}`]);
+              break;
+            }
+          }
+          if (suggestions.length > 0) break;
+        }
+      } else {
+        // Last resort for higher scores - start with T20 and figure out the rest
+        const afterT20 = remainingScore - 60;
+        for (let i = 20; i >= 1; i--) {
+          for (let j = 20; j >= 1; j--) {
+            if (i + (j * 2) === afterT20) {
+              validateAndAddSuggestion(['T20', `S${i}`, `D${j}`]);
+              break;
+            }
+          }
+          if (suggestions.length > 0) break;
+        }
+      }
     }
     
     return suggestions;
   };
+
+  // Modify getCheckoutSuggestion to validate database responses
+  const getCheckoutSuggestion = useCallback(async (remainingScore: number): Promise<string[][] | null> => {
+    // Client-side validation to ensure valid checkout scores
+    if (remainingScore > 170 || remainingScore <= 1) {
+      return null;
+    }
+    
+    // For scores not divisible by 2 (require a single), ensure it's a valid checkout
+    if (remainingScore % 2 !== 0 && remainingScore > 2) {
+      // Must hit an odd single to make the score even
+      const needSingle = remainingScore % 2;
+      const evenScore = remainingScore - needSingle;
+      
+      if (evenScore > 0 && evenScore <= 40) {
+        // Only return one suggestion for simple odd-single + double finish
+        return [[`S${needSingle}`, `D${evenScore/2}`]];
+      }
+    }
+    
+    // Simple checkouts (score <= 40 and even)
+    if (remainingScore <= 40 && remainingScore % 2 === 0) {
+      // Only one possible checkout for simple doubles
+      return [[`D${remainingScore/2}`]];
+    }
+    
+    // Generate our local fallback suggestions
+    const fallbackSuggestions = generateFallbackCheckout(remainingScore);
+    
+    // Try the database function for pre-determined checkout paths
+    try {
+      // Make TypeScript-compatible RPC call
+      const { data, error } = await supabase.rpc('suggest_checkout', { 
+        remaining_score: remainingScore 
+      }) as unknown as { 
+        data: string[] | null; 
+        error: Error | null 
+      };
+      
+      if (error) {
+        console.error("Error fetching checkout suggestion:", error);
+        return fallbackSuggestions;
+      }
+      
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        return fallbackSuggestions;
+      }
+      
+      // Check if the database suggestion is valid (no impossible darts)
+      const dbSuggestion = data;
+      let isValidCheckout = true;
+      
+      // Validate all darts in the suggestion
+      for (const dart of dbSuggestion) {
+        if (!isValidDart(dart)) {
+          console.log(`Invalid dart detected - ${dart} in ${dbSuggestion.join(', ')}`);
+          isValidCheckout = false;
+          break;
+        }
+      }
+      
+      // Also verify the total adds up
+      if (isValidCheckout && !verifyCheckoutTotal(dbSuggestion, remainingScore)) {
+        isValidCheckout = false;
+      }
+      
+      // If the database suggestion is invalid, just use our fallback
+      if (!isValidCheckout) {
+        return fallbackSuggestions;
+      }
+      
+      // If the database suggestion is valid but differs from our fallback,
+      // add it as an additional option
+      const dbCheckout = [dbSuggestion];
+      
+      // Check if the database suggestion is already in our fallbacks
+      const isDuplicate = fallbackSuggestions.some(suggestion => 
+        suggestion.length === dbSuggestion.length && 
+        suggestion.every((dart, idx) => dart === dbSuggestion[idx])
+      );
+      
+      if (!isDuplicate) {
+        // Combine suggestions, but limit to 2 total
+        const combinedSuggestions = [dbSuggestion, ...fallbackSuggestions];
+        return combinedSuggestions.slice(0, 2);
+      }
+      
+      // If already a duplicate, just return our fallbacks
+      return fallbackSuggestions;
+    } catch (err) {
+      console.error("Exception fetching checkout suggestion:", err);
+      return fallbackSuggestions;
+    }
+  }, []);
 
   return {
     loading,
