@@ -487,19 +487,16 @@ const ActiveGame = () => {
   const isCompleted = gameData?.status === 'completed';
 
   return (
-    <Container maxWidth="sm" sx={{ py: 2, pb: 8 }}>
-      {/* Game Header */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Container maxWidth="sm" sx={{ py: 1, pb: 8 }}>
+      {/* Game Header - More compact */}
+      <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
-          <Typography variant="h5" component="h1" fontWeight="bold">
-            {gameData?.type} Game
+          <Typography variant="h5" component="h1" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
+            {gameData?.type} Game {!isCompleted && <Typography component="span" variant="body2" color="text.secondary">Turn {turnNumber}</Typography>}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {!isCompleted ? `Turn ${turnNumber}` : 'Completed'}
-            {isPaused && <Chip size="small" label="PAUSED" color="warning" sx={{ ml: 1 }} />}
-          </Typography>
+          {isPaused && <Chip size="small" label="PAUSED" color="warning" sx={{ mr: 1 }} />}
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={0.5} alignItems="center">
           <IconButton 
             size="small" 
             onClick={() => setShowTurnHistory(true)}
@@ -571,11 +568,11 @@ const ActiveGame = () => {
         </MenuItem>
       </Menu>
 
-      {/* Game Paused Alert */}
+      {/* Game Paused Alert - More compact */}
       {isPaused && (
         <Alert 
           severity="warning" 
-          sx={{ mb: 2 }}
+          sx={{ mb: 1, py: 0 }}
           action={
             <Button 
               color="inherit" 
@@ -586,12 +583,12 @@ const ActiveGame = () => {
             </Button>
           }
         >
-          This game is currently paused.
+          Game paused
         </Alert>
       )}
 
-      {/* Horizontal Player Score Cards */}
-      <Paper sx={{ mb: 2, overflow: 'hidden' }}>
+      {/* Horizontal Player Score Cards - More compact */}
+      <Paper sx={{ mb: 1, overflow: 'hidden' }}>
         <Grid container>
           {players.map((player, index) => (
             <Grid 
@@ -606,7 +603,7 @@ const ActiveGame = () => {
             >
               <Box 
                 sx={{ 
-                  p: 1.5, 
+                  p: 1, 
                   textAlign: 'center',
                   borderTop: currentPlayerIndex === index ? 2 : 0,
                   borderColor: 'primary.main'
@@ -619,7 +616,8 @@ const ActiveGame = () => {
                   sx={{
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    mb: 0.5
+                    fontSize: '0.75rem',
+                    mb: 0.25
                   }}
                 >
                   {player.name}
@@ -632,6 +630,7 @@ const ActiveGame = () => {
                     player.score <= 40 && player.score % 2 === 0 ? 'warning.main' : 
                     undefined
                   }
+                  sx={{ lineHeight: 1.1 }}
                 >
                   {temporaryScore !== null && currentPlayerIndex === index 
                     ? temporaryScore 
@@ -642,7 +641,14 @@ const ActiveGame = () => {
                     label="Current" 
                     color="primary" 
                     size="small" 
-                    sx={{ mt: 0.5 }}
+                    sx={{ 
+                      mt: 0.25,
+                      height: '20px',
+                      '& .MuiChip-label': {
+                        px: 0.5,
+                        fontSize: '0.65rem'
+                      }
+                    }}
                   />
                 )}
               </Box>
@@ -651,32 +657,45 @@ const ActiveGame = () => {
         </Grid>
       </Paper>
       
-      {/* Checkout Suggestion - Make it more visible */}
+      {/* Checkout Suggestion - More compact */}
       {currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && !isCompleted && !isPaused && checkoutSuggestion && (
         <Paper 
           sx={{ 
-            p: 1.5, 
-            mb: 2, 
+            p: 0.75, 
+            mb: 1, 
             bgcolor: 'info.light', 
             color: 'info.contrastText', 
             borderRadius: 1,
-            position: 'relative'
           }}
         >
-          <Typography variant="body2" fontWeight="bold" gutterBottom>
-            Checkout Suggestion ({currentPlayer.score})
-          </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-            {checkoutSuggestion.map((dart, index) => (
-              <Chip 
-                key={index} 
-                label={dart} 
-                variant="filled" 
-                color="info"
-                sx={{ fontWeight: 'bold' }}
-              />
-            ))}
-          </Box>
+          <Grid container alignItems="center">
+            <Grid item xs={4}>
+              <Typography variant="caption" fontWeight="bold">
+                Checkout ({currentPlayer.score})
+              </Typography>
+            </Grid>
+            <Grid item xs={8}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                {checkoutSuggestion.map((dart, index) => (
+                  <Chip 
+                    key={index} 
+                    label={dart} 
+                    variant="filled" 
+                    color="info"
+                    size="small"
+                    sx={{ 
+                      fontWeight: 'bold',
+                      height: '22px',
+                      '& .MuiChip-label': {
+                        px: 0.5,
+                        fontSize: '0.7rem'
+                      }
+                    }}
+                  />
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
         </Paper>
       )}
 
@@ -697,7 +716,7 @@ const ActiveGame = () => {
               bottom: 0, 
               left: 0, 
               right: 0, 
-              py: 1, 
+              py: 0.5, 
               px: 2, 
               zIndex: 10, 
               borderRadius: 0,
