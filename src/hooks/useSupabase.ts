@@ -291,6 +291,18 @@ export const useSupabase = () => {
     });
   };
 
+  // Delete a turn by ID
+  const deleteTurn = async (turnId: string): Promise<void> => {
+    return fetchData(async () => {
+      const result = await supabase
+        .from('turns')
+        .delete()
+        .eq('id', turnId);
+      
+      return result;
+    });
+  };
+
   // Friends Operations
   const getFriends = useCallback(async (): Promise<FriendRow[] | null> => {
     if (!user) return null;
@@ -427,11 +439,67 @@ export const useSupabase = () => {
 
   // Helper function to generate fallback checkout suggestions
   const generateFallbackCheckout = (remainingScore: number): string[] => {
+    // Specific case for checkout 115 and similar problematic checkouts
+    if (remainingScore === 115) {
+      return ['T20', '15', 'D20'];
+    }
+    
+    // Common checkouts that might not be in the database
+    if (remainingScore === 113) {
+      return ['T20', '13', 'D20'];
+    }
+    
     // Fallback: Try to reduce to a manageable double
     // First try to leave a score <= 40 for a direct double
     const targetScore = Math.min(40, Math.floor(remainingScore / 2) * 2);
     const scoreToRemove = remainingScore - targetScore;
     
+    // Make sure we're not suggesting anything above a Double 20
+    if (targetScore > 40) {
+      // If too high, aim for a Double 20 and calculate what's left
+      const newTargetScore = 40;
+      const newScoreToRemove = remainingScore - newTargetScore;
+      
+      // Try to hit the largest sections first
+      if (newScoreToRemove >= 60 && newScoreToRemove <= 180) {
+        // Try combinations of T20 first
+        if (newScoreToRemove >= 60 && newScoreToRemove % 60 === 0) {
+          // Can be done with multiples of T20
+          const count = newScoreToRemove / 60;
+          return [...Array(count).fill('T20'), 'D20'];
+        } else if (newScoreToRemove > 60) {
+          // Try T20 + something else
+          const t20Count = Math.floor(newScoreToRemove / 60);
+          const remaining = newScoreToRemove - (t20Count * 60);
+          
+          if (remaining <= 20) {
+            return [...Array(t20Count).fill('T20'), `S${remaining}`, 'D20'];
+          } else if (remaining % 3 === 0 && remaining <= 60) {
+            return [...Array(t20Count).fill('T20'), `T${remaining/3}`, 'D20'];
+          } else if (remaining % 2 === 0 && remaining <= 40) {
+            return [...Array(t20Count).fill('T20'), `D${remaining/2}`, 'D20'];
+          }
+        }
+      }
+      
+      // Try singles and doubles combinations
+      if (newScoreToRemove <= 20) {
+        return [`S${newScoreToRemove}`, 'D20'];
+      } else if (newScoreToRemove <= 40 && newScoreToRemove % 2 === 0) {
+        return [`D${newScoreToRemove/2}`, 'D20'];
+      } else if (newScoreToRemove <= 60 && newScoreToRemove % 3 === 0) {
+        return [`T${newScoreToRemove/3}`, 'D20'];
+      } else {
+        // For awkward scores, try to break it down into two darts
+        const s19 = 19;
+        const remaining = newScoreToRemove - s19;
+        if (remaining <= 20) {
+          return [`S19`, `S${remaining}`, 'D20'];
+        }
+      }
+    }
+    
+    // Original logic for manageable scores
     if (scoreToRemove <= 60) {
       // If we can get there with a single dart
       if (scoreToRemove <= 20) {
@@ -443,8 +511,40 @@ export const useSupabase = () => {
       }
     }
     
-    // Default fallback for odd scores
-    return [`S1`, `D${Math.floor(remainingScore/2)}`];
+    // For scores above 100, try to use T20 and leave a double
+    if (remainingScore > 100) {
+      // Try to use T20 and leave a manageable double
+      const afterT20 = remainingScore - 60;
+      if (afterT20 > 0 && afterT20 % 2 === 0 && afterT20 <= 40) {
+        return ['T20', `D${afterT20/2}`];
+      }
+      
+      // Try with T19
+      const afterT19 = remainingScore - 57;
+      if (afterT19 > 0 && afterT19 % 2 === 0 && afterT19 <= 40) {
+        return ['T19', `D${afterT19/2}`];
+      }
+    }
+    
+    // If all else fails, use a smarter default fallback
+    // Try to leave D16 (a common finish) or D20
+    const preferredDoubles = [16, 20, 18, 12, 8];
+    
+    for (const doubleValue of preferredDoubles) {
+      const target = doubleValue * 2;
+      const toRemove = remainingScore - target;
+      
+      if (toRemove > 0 && toRemove <= 20) {
+        return [`S${toRemove}`, `D${doubleValue}`];
+      } else if (toRemove > 20 && toRemove <= 40 && toRemove % 2 === 0) {
+        return [`D${toRemove/2}`, `D${doubleValue}`];
+      } else if (toRemove > 0 && toRemove <= 60 && toRemove % 3 === 0) {
+        return [`T${toRemove/3}`, `D${doubleValue}`];
+      }
+    }
+    
+    // Last resort - old fallback
+    return [`S${remainingScore % 2 || 1}`, `D${Math.floor((remainingScore - (remainingScore % 2 || 1))/2)}`];
   };
 
   return {
@@ -464,6 +564,7 @@ export const useSupabase = () => {
     addTurn,
     getTurns,
     updateTurn,
+    deleteTurn,
     // Friends operations
     getFriends,
     addFriend,

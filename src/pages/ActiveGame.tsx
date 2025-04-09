@@ -73,6 +73,7 @@ const ActiveGame = () => {
     updateGameStatus,
     setGameWinner,
     deleteGame,
+    deleteTurn,
     loading,
     getFriends
   } = useSupabase();
@@ -99,6 +100,10 @@ const ActiveGame = () => {
   // Game options menu
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(menuAnchorEl);
+  
+  // Add new state for confirming turn deletion
+  const [confirmDeleteTurn, setConfirmDeleteTurn] = useState<Turn | null>(null);
+  const [isDeletingTurn, setIsDeletingTurn] = useState(false);
   
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setMenuAnchorEl(event.currentTarget);
@@ -251,6 +256,27 @@ const ActiveGame = () => {
         // For running updates, don't block the UI
         // Remove the marker (-1) and calculate temporary score
         const actualScores = scores.slice(0, -1);
+        
+        // Check if this is an empty update (just [-1]), which means all darts were deleted
+        if (actualScores.length === 0) {
+          // Reset temporary score to show original score
+          setTemporaryScore(null);
+          
+          // Get checkout suggestion for the original score
+          if (currentPlayer.score <= 170 && currentPlayer.score > 1) {
+            getCheckoutSuggestion(currentPlayer.score)
+              .then(suggestion => {
+                setCheckoutSuggestion(suggestion);
+              })
+              .catch(error => {
+                console.error("Error getting checkout suggestion:", error);
+              });
+          } else {
+            setCheckoutSuggestion(null);
+          }
+          return;
+        }
+        
         const runningTotal = actualScores.reduce((sum, score) => sum + score, 0);
         const temporaryRemaining = currentPlayer.score - runningTotal;
         
@@ -456,6 +482,81 @@ const ActiveGame = () => {
   // Handle game complete
   const handleGameComplete = () => {
     navigate('/');
+  };
+
+  // Add new function to handle turn deletion
+  const handleDeleteTurn = async () => {
+    if (!confirmDeleteTurn || !id) {
+      setConfirmDeleteTurn(null);
+      return;
+    }
+
+    setIsDeletingTurn(true);
+    try {
+      // Delete the turn in the database
+      await deleteTurn(confirmDeleteTurn.id);
+
+      // Update local state
+      // 1. Remove the turn from turns array
+      const updatedTurns = turns.filter(t => t.id !== confirmDeleteTurn.id);
+      setTurns(updatedTurns);
+
+      // 2. Recalculate player scores based on remaining turns
+      // Create a copy of players with their starting scores
+      const resetPlayers = players.map(player => ({
+        ...player,
+        score: player.startingScore
+      }));
+
+      // Apply all remaining turns to calculate current scores
+      updatedTurns.forEach(turn => {
+        const playerIndex = resetPlayers.findIndex(
+          p => p.id === turn.player_id && p.type === turn.player_type
+        );
+        if (playerIndex !== -1) {
+          resetPlayers[playerIndex].score = turn.remaining;
+        }
+      });
+
+      // Update players state
+      setPlayers(resetPlayers);
+
+      // 3. Determine the current player and turn number
+      if (updatedTurns.length === 0) {
+        // If no turns left, reset to first player and turn 1
+        setCurrentPlayerIndex(0);
+        setTurnNumber(1);
+      } else {
+        // Find the last player who took a turn
+        const lastTurn = updatedTurns[updatedTurns.length - 1];
+        const lastPlayerIndex = resetPlayers.findIndex(
+          p => p.id === lastTurn.player_id && p.type === lastTurn.player_type
+        );
+        
+        // Next player is the one after the last player
+        setCurrentPlayerIndex((lastPlayerIndex + 1) % resetPlayers.length);
+        
+        // Set turn number
+        setTurnNumber(Math.floor(updatedTurns.length / resetPlayers.length) + 1);
+      }
+
+      // 4. Update checkout suggestion for current player
+      const currentPlayer = resetPlayers[currentPlayerIndex];
+      if (currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1) {
+        const suggestion = await getCheckoutSuggestion(currentPlayer.score);
+        setCheckoutSuggestion(suggestion);
+      } else {
+        setCheckoutSuggestion(null);
+      }
+
+      // Close the dialog
+      setConfirmDeleteTurn(null);
+    } catch (error) {
+      console.error('Error deleting turn:', error);
+      setError('Failed to delete turn. Please try again.');
+    } finally {
+      setIsDeletingTurn(false);
+    }
   };
 
   // Display loading state
@@ -828,9 +929,19 @@ const ActiveGame = () => {
                 
                 return (
                   <Box key={index} sx={{ py: 1 }}>
-                    <Typography variant="subtitle2">
-                      {player?.name || 'Unknown'} - Turn {Math.floor(index / players.length) + 1}
-                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="subtitle2">
+                        {player?.name || 'Unknown'} - Turn {Math.floor(index / players.length) + 1}
+                      </Typography>
+                      <IconButton 
+                        size="small" 
+                        color="error"
+                        onClick={() => setConfirmDeleteTurn(turn)}
+                        disabled={isCompleted}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2" color="text.secondary">
                         {turn.scores.join(' + ')} = {turnScore}
@@ -847,6 +958,36 @@ const ActiveGame = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowTurnHistory(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Delete Turn Confirmation */}
+      <Dialog
+        open={!!confirmDeleteTurn}
+        onClose={() => setConfirmDeleteTurn(null)}
+      >
+        <DialogTitle>Delete Turn?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this turn? This will recalculate all player scores.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setConfirmDeleteTurn(null)} 
+            disabled={isDeletingTurn}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            onClick={handleDeleteTurn}
+            disabled={isDeletingTurn}
+            startIcon={isDeletingTurn ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {isDeletingTurn ? 'Deleting...' : 'Delete Turn'}
+          </Button>
         </DialogActions>
       </Dialog>
 

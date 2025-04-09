@@ -80,6 +80,13 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
       } catch (error) {
         console.error("Error updating score:", error);
       }
+    } else if (dartScores.length === 0) {
+      // When all darts are removed, send an empty update to reset checkout suggestion
+      try {
+        onScoreSubmit([-1]);
+      } catch (error) {
+        console.error("Error resetting score:", error);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dartScores]); // Remove onScoreSubmit from dependencies to prevent potential loops
@@ -348,17 +355,17 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
               }
             </Typography>
           </Grid>
-          <Grid item xs={6} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-            {/* Special quick buttons */}
+          <Grid item xs={6} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+            {/* Special quick buttons - renamed and resized */}
             <Button 
               variant="outlined"
               color="secondary"
               onClick={() => handleNumberPress(25)} 
               disabled={dartScores.length >= 3}
               size="small" 
-              sx={{ ml: 0.5, minWidth: 0, px: 1 }}
+              sx={{ minWidth: 0, px: 1.5, py: 0.6 }}
             >
-              Bull
+              25
             </Button>
             <Button 
               variant="outlined"
@@ -366,16 +373,16 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
               onClick={() => handleNumberPress(50)} 
               disabled={dartScores.length >= 3}
               size="small" 
-              sx={{ ml: 0.5, minWidth: 0, px: 1 }}
+              sx={{ minWidth: 0, px: 1.5, py: 0.6 }}
             >
-              D-Bull
+              Bull
             </Button>
             <Button 
               variant="outlined"
               onClick={() => handleNumberPress(0)} 
               disabled={dartScores.length >= 3}
               size="small"
-              sx={{ ml: 0.5, minWidth: 0, px: 1 }}
+              sx={{ minWidth: 0, px: 1.5, py: 0.6 }}
             >
               Miss
             </Button>
