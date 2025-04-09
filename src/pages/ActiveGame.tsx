@@ -486,9 +486,9 @@ const ActiveGame = () => {
   const isCompleted = gameData?.status === 'completed';
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4, pb: 10 }}>
+    <Container maxWidth="sm" sx={{ py: 2, pb: 8 }}>
       {/* Game Header */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h5" component="h1" fontWeight="bold">
             {gameData?.type} Game
@@ -498,197 +498,173 @@ const ActiveGame = () => {
             {isPaused && <Chip size="small" label="PAUSED" color="warning" sx={{ ml: 1 }} />}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Button 
-            variant="outlined" 
-            size="small" 
-            startIcon={<HistoryIcon />}
-            onClick={() => setShowTurnHistory(true)}
-          >
-            History
-          </Button>
-          {isPaused ? (
-            <Button 
-              variant="outlined" 
-              size="small" 
-              color="success"
-              startIcon={<PlayArrowIcon />}
-              onClick={handleResumeGame}
-            >
-              Resume
-            </Button>
-          ) : !isCompleted && (
-            <Button 
-              variant="outlined" 
-              size="small" 
-              color="warning"
-              startIcon={<PauseIcon />}
-              onClick={() => setConfirmPauseGame(true)}
-            >
-              Pause
-            </Button>
-          )}
-          <IconButton 
-            aria-label="more options"
-            aria-controls="game-menu"
-            aria-haspopup="true"
+        <Box>
+          <IconButton
             onClick={handleMenuOpen}
             size="small"
+            aria-label="game options"
           >
             <MoreVertIcon />
           </IconButton>
-        </Stack>
+        </Box>
       </Box>
 
-      {/* Game options menu */}
-      <Menu
-        id="game-menu"
-        anchorEl={menuAnchorEl}
-        open={isMenuOpen}
-        onClose={handleMenuClose}
-        MenuListProps={{
-          'aria-labelledby': 'game-options',
-        }}
-      >
-        <MenuItem 
-          onClick={() => {
-            handleMenuClose();
-            setConfirmExitGame(true);
-          }}
-        >
-          <ListItemIcon>
-            <HomeIcon fontSize="small" />
-          </ListItemIcon>
-          Exit to Home
-        </MenuItem>
-        <MenuItem 
-          onClick={() => {
-            handleMenuClose();
-            setConfirmDeleteGame(true);
-          }}
-          sx={{ color: 'error.main' }}
-        >
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" color="error" />
-          </ListItemIcon>
-          Delete Game
-        </MenuItem>
-      </Menu>
-
-      {/* Game Paused Alert */}
-      {isPaused && (
-        <Alert 
-          severity="warning" 
-          sx={{ mb: 3 }}
-          action={
-            <Button 
-              color="inherit" 
-              size="small"
-              onClick={handleResumeGame}
-            >
-              Resume
-            </Button>
-          }
-        >
-          This game is currently paused. Click Resume to continue playing.
-        </Alert>
-      )}
-
-      {/* Current Player & Player List Combined Card */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          {currentPlayer && (
-            <Box sx={{ mb: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" component="h2" fontWeight="bold">
-                  {currentPlayer.name}
-                  {isSubmittingScore && (
-                    <CircularProgress size={16} color="secondary" sx={{ ml: 1, verticalAlign: 'middle' }} />
-                  )}
-                </Typography>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="h4" component="div" fontWeight="bold" className="scores" 
-                    sx={{ 
-                      color: temporaryScore !== null ? 'info.main' : 'primary.main',
-                      transition: 'color 0.3s ease'
-                    }}>
-                    {temporaryScore !== null ? temporaryScore : currentPlayer.score}
-                  </Typography>
-                  {temporaryScore !== null && (
-                    <Typography variant="caption" color="text.secondary">
-                      Calculating...
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            </Box>
-          )}
-          
-          <Divider sx={{ my: 1 }} />
-          
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            All Players
-          </Typography>
-          <Stack 
-            divider={<Divider />} 
-            spacing={0.5}
+      {/* Game Score Cards - Now with more compact layout */}
+      <Stack spacing={1} sx={{ mb: 2 }}>
+        {players.map((player, index) => (
+          <MotionCard
+            key={player.id}
+            variant="outlined"
+            animate={{
+              scale: currentPlayerIndex === index ? [1, 1.02, 1] : 1,
+              borderColor: currentPlayerIndex === index ? '#1976d2' : undefined,
+              transition: { repeat: currentPlayerIndex === index ? Infinity : 0, repeatType: 'reverse', duration: 1.5 }
+            }}
+            sx={{
+              borderWidth: currentPlayerIndex === index ? 2 : 1,
+              backgroundColor: currentPlayerIndex === index ? 'rgba(25, 118, 210, 0.04)' : undefined
+            }}
           >
-            {players.map((player, index) => (
-              <Box 
-                key={`player-${player.id}-${player.type}`}
-                sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  py: 0.5,
-                  bgcolor: index === currentPlayerIndex ? 'action.selected' : 'transparent',
-                  borderRadius: 1
-                }}
-              >
-                <Typography variant="body2">
-                  {player.name}
-                  {index === currentPlayerIndex && !isPaused && ' (Current)'}
-                </Typography>
-                <Typography variant="body2" fontWeight="bold">
+            <CardContent sx={{ py: 1, px: 2, '&:last-child': { pb: 1 } }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={currentPlayerIndex === index ? 'bold' : 'normal'}>
+                    {player.name}
+                    {currentPlayerIndex === index && !isCompleted && !isPaused && (
+                      <Typography component="span" color="primary.main" sx={{ ml: 1 }}>
+                        (Current)
+                      </Typography>
+                    )}
+                  </Typography>
+                </Box>
+                <Typography 
+                  variant="h4" 
+                  fontWeight="bold"
+                  color={
+                    player.score === 0 ? 'success.main' : 
+                    player.score <= 40 && player.score % 2 === 0 ? 'warning.main' : 
+                    undefined
+                  }
+                >
                   {player.score}
                 </Typography>
               </Box>
-            ))}
-          </Stack>
-        </CardContent>
-      </Card>
-
-      {/* Score Entry section - only show if game is active */}
-      {!isPaused && !isCompleted && (
-        <>
-          {/* Checkout Suggestion - Fixed height container to prevent layout shifts */}
-          <Box sx={{ minHeight: currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 ? '100px' : '0px', mb: 3, opacity: 1, transition: 'min-height 0.2s ease-in-out' }}>
-            {checkoutSuggestion && currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && (
-              <Paper sx={{ p: 2, bgcolor: 'success.dark' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Checkout Suggestion
-                </Typography>
-                <Typography variant="body1" fontWeight="bold">
-                  {currentPlayer.score} = {checkoutSuggestion.join(' → ')}
-                </Typography>
-              </Paper>
-            )}
-          </Box>
-
-          {/* Score Entry with fixed container */}
-          <Box sx={{ mb: 3, opacity: 1 }}>
-            <Typography variant="h6" component="h2" gutterBottom>
-              Enter Score
-            </Typography>
-            {currentPlayer && (
-              <ScoreEntry 
-                key={`score-entry-${currentPlayerIndex}`}
-                currentPlayerScore={currentPlayer.score}
-                onScoreSubmit={handleScoreSubmit}
-                onCelebrate180={handle180Celebration}
+            </CardContent>
+          </MotionCard>
+        ))}
+      </Stack>
+      
+      {/* Checkout Suggestion - Make it more visible */}
+      {currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && !isCompleted && !isPaused && checkoutSuggestion && (
+        <Paper 
+          sx={{ 
+            p: 1.5, 
+            mb: 2, 
+            bgcolor: 'info.light', 
+            color: 'info.contrastText', 
+            borderRadius: 1,
+            position: 'relative'
+          }}
+        >
+          <Typography variant="body2" fontWeight="bold" gutterBottom>
+            Checkout Suggestion ({currentPlayer.score})
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+            {checkoutSuggestion.map((dart, index) => (
+              <Chip 
+                key={index} 
+                label={dart} 
+                variant="filled" 
+                color="info"
+                sx={{ fontWeight: 'bold' }}
               />
-            )}
+            ))}
           </Box>
+        </Paper>
+      )}
+
+      {!isCompleted && !isPaused ? (
+        <>
+          {/* Score Entry */}
+          <ScoreEntry
+            currentPlayerScore={currentPlayer?.score || 0}
+            onScoreSubmit={handleScoreSubmit}
+            onCelebrate180={handle180Celebration}
+          />
+          
+          {/* Fixed Action Bar */}
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              position: 'fixed', 
+              bottom: 0, 
+              left: 0, 
+              right: 0, 
+              py: 1, 
+              px: 2, 
+              zIndex: 10, 
+              borderRadius: 0,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}
+          >
+            <Button
+              color="inherit"
+              onClick={() => setConfirmExitGame(true)}
+              startIcon={<HomeIcon />}
+              size="small"
+            >
+              Exit
+            </Button>
+            
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => setConfirmPauseGame(true)}
+              startIcon={<PauseIcon />}
+              size="small"
+            >
+              Pause
+            </Button>
+            
+            <Button
+              color="inherit"
+              onClick={() => setShowTurnHistory(true)}
+              startIcon={<HistoryIcon />}
+              size="small"
+            >
+              History
+            </Button>
+          </Paper>
         </>
+      ) : (
+        <Box sx={{ textAlign: 'center', mt: 4 }}>
+          {isPaused ? (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleResumeGame}
+              startIcon={<PlayArrowIcon />}
+              sx={{ mb: 2 }}
+            >
+              Continue Game
+            </Button>
+          ) : (
+            <Typography variant="h6" gutterBottom color="success.main">
+              Game Completed!
+            </Typography>
+          )}
+          <Box sx={{ mt: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={handleExitToHome}
+              fullWidth
+            >
+              Return to Home
+            </Button>
+          </Box>
+        </Box>
       )}
 
       {/* Turn History Dialog */}

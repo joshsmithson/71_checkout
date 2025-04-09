@@ -11,7 +11,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions 
+  DialogActions,
+  Divider
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import BackspaceIcon from '@mui/icons-material/Backspace';
@@ -38,6 +39,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
   const { isSoundEnabled } = useUI();
   const [dartScores, setDartScores] = useState<number[]>([]);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [selectedMultiplier, setSelectedMultiplier] = useState<number>(1); // Default to single
   const audioContextRef = useRef<AudioContext | null>(null);
   
   // Initialize audio context once
@@ -82,12 +84,12 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dartScores]); // Remove onScoreSubmit from dependencies to prevent potential loops
 
-  // Handle number button press
+  // Handle number button press - now with multiplier first approach
   const handleNumberPress = (num: number) => {
     // Limit to 3 darts per turn
     if (dartScores.length >= 3) return;
 
-    // Common dart scores
+    // Special cases that ignore multiplier
     if (num === 25) {
       // Single Bull
       setDartScores([...dartScores, 25]);
@@ -98,8 +100,10 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
       // Miss (0 points)
       setDartScores([...dartScores, 0]);
     } else {
-      // Regular numbers 1-20
-      setDartScores([...dartScores, num]);
+      // Regular numbers 1-20, apply the selected multiplier
+      setDartScores([...dartScores, num * selectedMultiplier]);
+      // Reset multiplier to single after each dart
+      setSelectedMultiplier(1);
     }
 
     // Play sound if enabled
@@ -145,19 +149,9 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
     }
   };
 
-  // Handle single, double, triple button press
-  const handleMultiplier = (multiplier: number) => {
-    if (dartScores.length === 0) return;
-    
-    const lastScore = dartScores[dartScores.length - 1];
-    
-    // Only apply to regular numbers 1-20
-    if (lastScore > 0 && lastScore <= 20) {
-      // Replace the last score with its multiplied value
-      const newScores = [...dartScores];
-      newScores[newScores.length - 1] = lastScore * multiplier;
-      setDartScores(newScores);
-    }
+  // Handle multiplier selection
+  const handleMultiplierSelect = (multiplier: number) => {
+    setSelectedMultiplier(multiplier);
   };
 
   // Handle backspace button
@@ -202,10 +196,20 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
     setDartScores([]); // Reset dart scores after celebration
   };
 
+  // Get multiplier text representation
+  const getMultiplierLabel = (multiplier: number) => {
+    switch(multiplier) {
+      case 1: return 'Single';
+      case 2: return 'Double';
+      case 3: return 'Triple';
+      default: return 'Single';
+    }
+  };
+
   return (
     <>
       {/* Running Total */}
-      <Box sx={{ mb: 2, textAlign: 'center' }}>
+      <Box sx={{ mb: 1, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
           This Turn
         </Typography>
@@ -252,19 +256,67 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
         </Box>
       </Box>
 
-      {/* Number Pad */}
-      <Paper sx={{ p: 2 }}>
-        {/* Numbers 1-20 */}
+      {/* Mobile-optimized Score Entry */}
+      <Paper sx={{ p: 1.5, mb: 1 }}>
+        {/* Multiplier Selection - Select this FIRST */}
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ textAlign: 'center' }}>
+          Step 1: Select Multiplier
+        </Typography>
         <Grid container spacing={1} sx={{ mb: 1 }}>
-          {[...Array(20)].map((_, i) => (
-            <Grid item xs={2.4} key={i + 1}>
+          <Grid item xs={4}>
+            <Button
+              variant={selectedMultiplier === 1 ? "contained" : "outlined"}
+              color="primary"
+              fullWidth
+              onClick={() => handleMultiplierSelect(1)}
+              sx={{ fontWeight: selectedMultiplier === 1 ? 'bold' : 'normal' }}
+            >
+              Single
+            </Button>
+          </Grid>
+          <Grid item xs={4}>
+            <Button
+              variant={selectedMultiplier === 2 ? "contained" : "outlined"}
+              color="primary"
+              fullWidth
+              onClick={() => handleMultiplierSelect(2)}
+              sx={{ fontWeight: selectedMultiplier === 2 ? 'bold' : 'normal' }}
+            >
+              Double
+            </Button>
+          </Grid>
+          <Grid item xs={4}>
+            <Button
+              variant={selectedMultiplier === 3 ? "contained" : "outlined"}
+              color="primary"
+              fullWidth
+              onClick={() => handleMultiplierSelect(3)}
+              sx={{ fontWeight: selectedMultiplier === 3 ? 'bold' : 'normal' }}
+            >
+              Triple
+            </Button>
+          </Grid>
+        </Grid>
+
+        <Divider sx={{ my: 1 }} />
+        
+        {/* Number Selection - AFTER selecting multiplier */}
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ textAlign: 'center' }}>
+          Step 2: Select Number {selectedMultiplier > 1 && `(${getMultiplierLabel(selectedMultiplier)})`}
+        </Typography>
+        
+        {/* Numbers Pad in a 5x4 grid layout for better use of space */}
+        <Grid container spacing={1} sx={{ mb: 1 }}>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map(num => (
+            <Grid item xs={2.4} key={num}>
               <Button
                 variant="outlined"
-                onClick={() => handleNumberPress(i + 1)}
+                onClick={() => handleNumberPress(num)}
                 disabled={dartScores.length >= 3}
-                sx={{ minWidth: 0, width: '100%' }}
+                size="small"
+                sx={{ width: '100%', minWidth: 0, py: 0.5 }}
               >
-                {i + 1}
+                {num}
               </Button>
             </Grid>
           ))}
@@ -275,10 +327,11 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
           <Grid item xs={4}>
             <Button
               variant="outlined"
-              color="primary"
+              color="secondary"
               fullWidth
               onClick={() => handleNumberPress(25)}
               disabled={dartScores.length >= 3}
+              size="small"
             >
               Bull (25)
             </Button>
@@ -286,10 +339,11 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
           <Grid item xs={4}>
             <Button
               variant="outlined"
-              color="primary"
+              color="secondary"
               fullWidth
               onClick={() => handleNumberPress(50)}
               disabled={dartScores.length >= 3}
+              size="small"
             >
               D-Bull (50)
             </Button>
@@ -300,62 +354,36 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
               fullWidth
               onClick={() => handleNumberPress(0)}
               disabled={dartScores.length >= 3}
+              size="small"
             >
               Miss (0)
             </Button>
           </Grid>
         </Grid>
 
-        {/* Multipliers */}
-        <Grid container spacing={1} sx={{ mb: 2 }}>
-          <Grid item xs={4}>
-            <Button
-              variant="contained"
-              color="secondary"
-              fullWidth
-              onClick={() => handleMultiplier(1)}
-              disabled={dartScores.length === 0 || dartScores[dartScores.length - 1] > 20 || dartScores[dartScores.length - 1] === 0}
-            >
-              Single
-            </Button>
-          </Grid>
-          <Grid item xs={4}>
-            <Button
-              variant="contained"
-              color="secondary"
-              fullWidth
-              onClick={() => handleMultiplier(2)}
-              disabled={dartScores.length === 0 || dartScores[dartScores.length - 1] > 20 || dartScores[dartScores.length - 1] === 0}
-            >
-              Double
-            </Button>
-          </Grid>
-          <Grid item xs={4}>
-            <Button
-              variant="contained"
-              color="secondary"
-              fullWidth
-              onClick={() => handleMultiplier(3)}
-              disabled={dartScores.length === 0 || dartScores[dartScores.length - 1] > 20 || dartScores[dartScores.length - 1] === 0}
-            >
-              Triple
-            </Button>
-          </Grid>
-        </Grid>
-
         {/* Control buttons */}
         <Stack direction="row" spacing={1} justifyContent="space-between">
-          <IconButton onClick={handleBackspace} disabled={dartScores.length === 0}>
+          <IconButton 
+            onClick={handleBackspace} 
+            disabled={dartScores.length === 0}
+            size="small"
+            color="error"
+          >
             <BackspaceIcon />
           </IconButton>
 
-          <IconButton onClick={handleClear} disabled={dartScores.length === 0}>
+          <IconButton 
+            onClick={handleClear} 
+            disabled={dartScores.length === 0}
+            size="small"
+            color="error"
+          >
             <DeleteIcon />
           </IconButton>
 
           <Button
             variant="contained"
-            color={wouldBust ? 'error' : 'primary'}
+            color={wouldBust ? 'error' : 'success'}
             startIcon={<PublishIcon />}
             onClick={handleSubmit}
             disabled={dartScores.length === 0}
