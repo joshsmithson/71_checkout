@@ -8,26 +8,25 @@ export default function middleware(request) {
     // Log request details (will appear in Vercel function logs)
     console.log(`[Middleware] Processing request for ${path}`);
     
-    // For static HTML files in the public folder, don't interfere 
-    if (path === '/debug.html' || path === '/basic.html' || path.includes('favicon') || 
-        path.startsWith('/assets/') || path.includes('.svg') || path.includes('.json') || 
-        path.includes('.css') || path.includes('.js') || path.includes('.map') || 
-        path.includes('.mp3') || path.includes('.txt')) {
-      console.log(`[Middleware] Passing through static asset: ${path}`);
-      return;
+    // Don't intercept ANY static files or HTML files from public
+    // This is a critical fix - don't process ANY files that should be served directly
+    if (path.includes('.') || path === '/basic' || path === '/debug') {
+      console.log(`[Middleware] Bypassing middleware for: ${path}`);
+      return; // Return undefined to skip middleware processing
     }
     
-    // For the root path or any non-asset path, serve index.html
-    console.log(`[Middleware] Serving as SPA route: ${path}`);
+    // For the root path or any non-asset path, route to index.html
+    console.log(`[Middleware] Handling SPA route: ${path}`);
     
-    // If it's the root path, add diagnostics header
+    // Only set headers for SPA routes, don't attempt to serve content
     const headers = {
-      'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'X-Middleware-Info': 'Processed by Dart Counter middleware'
     };
     
-    return new Response(null, { headers });
+    // Important: for SPA routes, rewrite to the index.html but DON'T set Content-Type
+    // Let Vercel handle the actual serving of the content
+    return Response.redirect(new URL('/', request.url), 307);
   } catch (error) {
     console.error('[Middleware] Error:', error);
     
@@ -48,7 +47,7 @@ export default function middleware(request) {
         <h1>Middleware Error</h1>
         <p>The middleware encountered an error processing your request.</p>
         <pre>${error.message}</pre>
-        <p>Try accessing <a href="/basic.html" style="color: #E53935;">basic.html</a> instead.</p>
+        <p>Path: ${request.url}</p>
       </body>
       </html>
     `, {

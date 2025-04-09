@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "postbuild": "cp dist/index.html dist/404.html && node vercel-build.js",
+    "postbuild": "cp dist/index.html dist/404.html && cp -R public/* dist/ && node vercel-build.js",
     "preview": "vite preview",
     "test": "jest",
     "lint": "eslint src --ext ts,tsx",
