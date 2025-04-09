@@ -133,7 +133,8 @@ export const useSupabase = () => {
       }
       
       // Begin a transaction to ensure all data is deleted consistently
-      // Delete in order: turns -> game_players -> game
+      // The database trigger 'remove_stats_on_game_delete' will handle removing statistics
+      // before the game is deleted if it was completed
       
       // 1. Delete turns
       const { error: deleteTurnsError } = await supabase
@@ -156,6 +157,7 @@ export const useSupabase = () => {
       }
       
       // 3. Delete the game itself
+      // This will trigger the database function to remove statistics if it was completed
       const { error: deleteGameError } = await supabase
         .from('games')
         .delete()
@@ -163,14 +165,6 @@ export const useSupabase = () => {
       
       if (deleteGameError) {
         throw new Error(`Failed to delete game: ${deleteGameError.message}`);
-      }
-      
-      // 4. Update statistics if the game was completed
-      if (game.status === 'completed' && turns && gamePlayers) {
-        // We should update the statistics for all players involved
-        // This would need to be done via a service function or stored procedure on the server
-        // For now, we'll just log a message
-        console.log(`Game ${gameId} deleted successfully. Statistics need to be updated.`);
       }
       
       // Return success

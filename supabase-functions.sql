@@ -362,4 +362,196 @@ BEGIN
     WHEN 71 THEN suggestion := ARRAY['T13', 'D16'];
     WHEN 70 THEN suggestion := ARRAY['T10', 'D20'];
     WHEN 69 THEN suggestion := ARRAY['T19', 'D6'];
-    WHEN 68 THEN suggestion := ARRAY
+    WHEN 68 THEN suggestion := ARRAY['T18', 'D14'];
+    WHEN 67 THEN suggestion := ARRAY['T17', 'D14'];
+    WHEN 66 THEN suggestion := ARRAY['T16', 'D14'];
+    WHEN 65 THEN suggestion := ARRAY['T15', 'D14'];
+    WHEN 64 THEN suggestion := ARRAY['T14', 'D14'];
+    WHEN 63 THEN suggestion := ARRAY['T13', 'D14'];
+    WHEN 62 THEN suggestion := ARRAY['T12', 'D14'];
+    WHEN 61 THEN suggestion := ARRAY['T11', 'D14'];
+    WHEN 60 THEN suggestion := ARRAY['T10', 'D14'];
+    WHEN 59 THEN suggestion := ARRAY['T9', 'D14'];
+    WHEN 58 THEN suggestion := ARRAY['T8', 'D14'];
+    WHEN 57 THEN suggestion := ARRAY['T7', 'D14'];
+    WHEN 56 THEN suggestion := ARRAY['T6', 'D14'];
+    WHEN 55 THEN suggestion := ARRAY['T5', 'D14'];
+    WHEN 54 THEN suggestion := ARRAY['T4', 'D14'];
+    WHEN 53 THEN suggestion := ARRAY['T3', 'D14'];
+    WHEN 52 THEN suggestion := ARRAY['T2', 'D14'];
+    WHEN 51 THEN suggestion := ARRAY['T1', 'D14'];
+    WHEN 50 THEN suggestion := ARRAY['D14'];
+    WHEN 49 THEN suggestion := ARRAY['T19', 'D5'];
+    WHEN 48 THEN suggestion := ARRAY['T18', 'D10'];
+    WHEN 47 THEN suggestion := ARRAY['T17', 'D10'];
+    WHEN 46 THEN suggestion := ARRAY['T16', 'D10'];
+    WHEN 45 THEN suggestion := ARRAY['T15', 'D10'];
+    WHEN 44 THEN suggestion := ARRAY['T14', 'D10'];
+    WHEN 43 THEN suggestion := ARRAY['T13', 'D10'];
+    WHEN 42 THEN suggestion := ARRAY['T12', 'D10'];
+    WHEN 41 THEN suggestion := ARRAY['T11', 'D10'];
+    WHEN 40 THEN suggestion := ARRAY['T10', 'D10'];
+    WHEN 39 THEN suggestion := ARRAY['T9', 'D10'];
+    WHEN 38 THEN suggestion := ARRAY['T8', 'D10'];
+    WHEN 37 THEN suggestion := ARRAY['T7', 'D10'];
+    WHEN 36 THEN suggestion := ARRAY['T6', 'D10'];
+    WHEN 35 THEN suggestion := ARRAY['T5', 'D10'];
+    WHEN 34 THEN suggestion := ARRAY['T4', 'D10'];
+    WHEN 33 THEN suggestion := ARRAY['T3', 'D10'];
+    WHEN 32 THEN suggestion := ARRAY['T2', 'D10'];
+    WHEN 31 THEN suggestion := ARRAY['T1', 'D10'];
+    WHEN 30 THEN suggestion := ARRAY['D10'];
+    WHEN 29 THEN suggestion := ARRAY['T19', 'D1'];
+    WHEN 28 THEN suggestion := ARRAY['T18', 'D6'];
+    WHEN 27 THEN suggestion := ARRAY['T17', 'D6'];
+    WHEN 26 THEN suggestion := ARRAY['T16', 'D6'];
+    WHEN 25 THEN suggestion := ARRAY['T15', 'D6'];
+    WHEN 24 THEN suggestion := ARRAY['T14', 'D6'];
+    WHEN 23 THEN suggestion := ARRAY['T13', 'D6'];
+    WHEN 22 THEN suggestion := ARRAY['T12', 'D6'];
+    WHEN 21 THEN suggestion := ARRAY['T11', 'D6'];
+    WHEN 20 THEN suggestion := ARRAY['T10', 'D6'];
+    WHEN 19 THEN suggestion := ARRAY['T9', 'D6'];
+    WHEN 18 THEN suggestion := ARRAY['T8', 'D6'];
+    WHEN 17 THEN suggestion := ARRAY['T7', 'D6'];
+    WHEN 16 THEN suggestion := ARRAY['T6', 'D6'];
+    WHEN 15 THEN suggestion := ARRAY['T5', 'D6'];
+    WHEN 14 THEN suggestion := ARRAY['T4', 'D6'];
+    WHEN 13 THEN suggestion := ARRAY['T3', 'D6'];
+    WHEN 12 THEN suggestion := ARRAY['T2', 'D6'];
+    WHEN 11 THEN suggestion := ARRAY['T1', 'D6'];
+    WHEN 10 THEN suggestion := ARRAY['D6'];
+    WHEN 9 THEN suggestion := ARRAY['T19', 'D0'];
+    WHEN 8 THEN suggestion := ARRAY['T18', 'D2'];
+    WHEN 7 THEN suggestion := ARRAY['T17', 'D2'];
+    WHEN 6 THEN suggestion := ARRAY['T16', 'D2'];
+    WHEN 5 THEN suggestion := ARRAY['T15', 'D2'];
+    WHEN 4 THEN suggestion := ARRAY['T14', 'D2'];
+    WHEN 3 THEN suggestion := ARRAY['T13', 'D2'];
+    WHEN 2 THEN suggestion := ARRAY['T12', 'D2'];
+    WHEN 1 THEN suggestion := ARRAY['T11', 'D2'];
+    WHEN 0 THEN suggestion := ARRAY['Bull'];
+  END CASE;
+  
+  RETURN suggestion;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to remove statistics when a game is deleted
+CREATE OR REPLACE FUNCTION remove_statistics_after_game_deletion()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Only process deletions of completed games
+  IF OLD.status = 'completed' THEN
+    -- Gather player data and their contribution to stats from this game
+    WITH game_summary AS (
+      SELECT 
+        gp.player_id,
+        gp.player_type,
+        gp.winner,
+        OLD.type AS game_type,
+        (
+          SELECT COALESCE(SUM(CASE WHEN array_length(t.scores, 1) = 3 THEN t.scores[1] + t.scores[2] + t.scores[3] ELSE 0 END), 0)
+          FROM turns t
+          WHERE t.game_id = OLD.id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
+        ) AS total_score,
+        (
+          SELECT COUNT(*)
+          FROM turns t
+          WHERE t.game_id = OLD.id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
+            AND array_length(t.scores, 1) = 3 AND t.scores[1] + t.scores[2] + t.scores[3] = 180
+        ) AS count_180,
+        (
+          SELECT COUNT(*)
+          FROM turns t
+          WHERE t.game_id = OLD.id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
+            AND t.checkout = TRUE
+        ) AS checkouts,
+        (
+          SELECT COUNT(*)
+          FROM turns t
+          WHERE t.game_id = OLD.id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
+        ) AS total_turns,
+        (
+          SELECT COALESCE(SUM(array_length(t.scores, 1)), 0)
+          FROM turns t
+          WHERE t.game_id = OLD.id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
+        ) AS total_darts
+      FROM game_players gp
+      WHERE gp.game_id = OLD.id
+    )
+    -- Update statistics for each player by subtracting this game's contribution
+    UPDATE statistics
+    SET
+      games_played = GREATEST(games_played - 1, 0),
+      games_won = CASE WHEN gs.winner THEN GREATEST(games_won - 1, 0) ELSE games_won END,
+      total_score = GREATEST(total_score - gs.total_score, 0),
+      count_180 = GREATEST(count_180 - gs.count_180, 0),
+      -- Recalculate averages based on one less game
+      checkout_percentage = CASE 
+        WHEN games_played <= 1 THEN 0
+        ELSE ((checkout_percentage * games_played) - (gs.checkouts::NUMERIC / NULLIF(gs.total_turns, 0) * 100)) / GREATEST(games_played - 1, 1)
+      END,
+      average_per_dart = CASE
+        WHEN games_played <= 1 THEN 0
+        ELSE ((average_per_dart * games_played) - (gs.total_score::NUMERIC / NULLIF(gs.total_darts, 0))) / GREATEST(games_played - 1, 1)
+      END,
+      last_updated = NOW()
+    FROM game_summary gs
+    WHERE 
+      statistics.player_id = gs.player_id AND
+      statistics.player_type = gs.player_type AND
+      statistics.game_type = gs.game_type;
+      
+    -- Update rivalries - remove wins attributed to this game
+    WITH game_winners AS (
+      SELECT 
+        player_id,
+        player_type
+      FROM game_players
+      WHERE game_id = OLD.id AND winner = TRUE
+    ),
+    game_losers AS (
+      SELECT 
+        player_id,
+        player_type
+      FROM game_players
+      WHERE game_id = OLD.id AND winner = FALSE
+    ),
+    rivalry_pairs AS (
+      SELECT 
+        w.player_id AS winner_id,
+        w.player_type AS winner_type,
+        l.player_id AS loser_id,
+        l.player_type AS loser_type
+      FROM game_winners w
+      CROSS JOIN game_losers l
+    )
+    -- Update rivalry records to remove this game's contribution
+    UPDATE rivals
+    SET
+      player1_wins = CASE 
+        WHEN player1_id = rp.winner_id AND player1_type = rp.winner_type THEN GREATEST(player1_wins - 1, 0)
+        ELSE player1_wins
+      END,
+      player2_wins = CASE 
+        WHEN player2_id = rp.winner_id AND player2_type = rp.winner_type THEN GREATEST(player2_wins - 1, 0)
+        ELSE player2_wins
+      END,
+      -- Only reset last_game_id if it's the deleted game
+      last_game_id = CASE WHEN last_game_id = OLD.id THEN NULL ELSE last_game_id END
+    FROM rivalry_pairs rp
+    WHERE 
+      (player1_id = rp.winner_id AND player2_id = rp.loser_id) OR
+      (player1_id = rp.loser_id AND player2_id = rp.winner_id);
+  END IF;
+  
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to remove statistics when a game is deleted
+CREATE TRIGGER remove_stats_on_game_delete
+BEFORE DELETE ON games
+FOR EACH ROW
+EXECUTE FUNCTION remove_statistics_after_game_deletion();
