@@ -208,17 +208,17 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
 
   return (
     <>
-      {/* Running Total - More visually interesting design */}
+      {/* Running Total - Dark theme design */}
       <Paper sx={{ 
         p: 1, 
         mb: 1, 
-        background: 'linear-gradient(to right, #e3f2fd, #bbdefb)',
+        background: 'linear-gradient(to right, #1e293b, #0d1b2a)',
         borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
       }}>
         <Grid container alignItems="center" spacing={1}>
           <Grid item xs={4} sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="primary.dark" sx={{ fontWeight: 'medium', fontSize: '0.8rem' }}>
+            <Typography variant="body2" color="grey.400" sx={{ fontWeight: 'medium', fontSize: '0.8rem' }}>
               THIS TURN
             </Typography>
             <Typography 
@@ -226,7 +226,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
               component="div" 
               fontWeight="bold" 
               className="scores"
-              color={wouldBust ? 'error.main' : 'primary.dark'}
+              color={wouldBust ? 'error.light' : 'primary.light'}
               sx={{ lineHeight: 1.1 }}
             >
               {totalScore}
@@ -262,8 +262,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
                   sx={{ 
                     mx: 0.5, 
                     fontWeight: 'bold',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                    animation: 'pulse 1s'
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
                   }}
                 />
               ))}
@@ -274,7 +273,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
                     width: '32px', 
                     height: '24px', 
                     border: '1px dashed', 
-                    borderColor: 'primary.light', 
+                    borderColor: 'grey.600', 
                     borderRadius: '16px',
                     mx: 0.5,
                     opacity: 0.5,
@@ -283,7 +282,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
                     alignItems: 'center'
                   }}
                 >
-                  <Typography variant="caption" color="primary.light">●</Typography>
+                  <Typography variant="caption" color="grey.500">●</Typography>
                 </Box>
               ))}
             </Box>

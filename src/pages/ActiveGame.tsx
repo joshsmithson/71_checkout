@@ -663,14 +663,15 @@ const ActiveGame = () => {
           sx={{ 
             p: 0.75, 
             mb: 1, 
-            bgcolor: 'info.light', 
-            color: 'info.contrastText', 
-            borderRadius: 1,
+            background: 'linear-gradient(to right, #1e293b, #0d1b2a)',
+            color: 'grey.200', 
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
           }}
         >
           <Grid container alignItems="center">
             <Grid item xs={4}>
-              <Typography variant="caption" fontWeight="bold">
+              <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'grey.400' }}>
                 Checkout ({currentPlayer.score})
               </Typography>
             </Grid>
@@ -681,7 +682,7 @@ const ActiveGame = () => {
                     key={index} 
                     label={dart} 
                     variant="filled" 
-                    color="info"
+                    color="primary"
                     size="small"
                     sx={{ 
                       fontWeight: 'bold',
