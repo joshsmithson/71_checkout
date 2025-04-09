@@ -657,44 +657,67 @@ const ActiveGame = () => {
         </Grid>
       </Paper>
       
-      {/* Checkout Suggestion - More compact */}
+      {/* Checkout Suggestion - More prominent */}
       {currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && !isCompleted && !isPaused && checkoutSuggestion && (
         <Paper 
           sx={{ 
-            p: 0.75, 
+            p: 1.25, 
             mb: 1, 
-            background: 'linear-gradient(to right, #1e293b, #0d1b2a)',
+            bgcolor: 'grey.900',
             color: 'grey.200', 
             borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+            border: 1,
+            borderColor: 'primary.dark'
           }}
         >
-          <Grid container alignItems="center">
-            <Grid item xs={4}>
-              <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'grey.400' }}>
-                Checkout ({currentPlayer.score})
+          <Grid container alignItems="center" spacing={1}>
+            <Grid item xs={5}>
+              <Typography sx={{ color: 'grey.300', fontWeight: 'medium', fontSize: '0.85rem' }}>
+                Checkout Path:
+              </Typography>
+              <Typography color="primary.main" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                {currentPlayer.score}
               </Typography>
             </Grid>
-            <Grid item xs={8}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                {checkoutSuggestion.map((dart, index) => (
-                  <Chip 
-                    key={index} 
-                    label={dart} 
-                    variant="filled" 
-                    color="primary"
-                    size="small"
-                    sx={{ 
-                      fontWeight: 'bold',
-                      height: '22px',
-                      '& .MuiChip-label': {
-                        px: 0.5,
-                        fontSize: '0.7rem'
-                      }
-                    }}
-                  />
-                ))}
+            <Grid item xs={7}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                gap: 0.5,
+                flexWrap: 'wrap' 
+              }}>
+                {checkoutSuggestion.map((dart, index) => {
+                  // Use different colors based on dart type (T/D/S)
+                  const isDartTriple = dart.startsWith('T');
+                  const isDartDouble = dart.startsWith('D');
+                  const isBull = dart === 'Bull';
+                  
+                  return (
+                    <Chip 
+                      key={index} 
+                      label={dart} 
+                      variant="filled" 
+                      color={isDartTriple ? "error" : isDartDouble ? "primary" : "default"}
+                      size="medium"
+                      sx={{ 
+                        fontWeight: 'bold',
+                        border: isDartTriple || isDartDouble || isBull ? 1 : 0,
+                        borderColor: isBull ? 'error.main' : 'transparent',
+                        bgcolor: isBull ? 'background.paper' : undefined,
+                        color: isBull ? 'error.main' : undefined,
+                        fontSize: '0.85rem',
+                        mb: 0.5
+                      }}
+                    />
+                  );
+                })}
               </Box>
+              {checkoutSuggestion.length > 0 && (
+                <Typography variant="caption" color="grey.500" sx={{ textAlign: 'center', display: 'block', mt: 0.5 }}>
+                  Suggested checkout path
+                </Typography>
+              )}
             </Grid>
           </Grid>
         </Paper>

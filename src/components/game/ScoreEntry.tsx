@@ -208,49 +208,38 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
 
   return (
     <>
-      {/* Running Total - Dark theme design */}
+      {/* Running Total - More compact and dark theme design */}
       <Paper sx={{ 
-        p: 1, 
+        p: 0.75, 
         mb: 1, 
-        background: 'linear-gradient(to right, #1e293b, #0d1b2a)',
+        bgcolor: 'grey.900',
         borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+        boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
       }}>
-        <Grid container alignItems="center" spacing={1}>
-          <Grid item xs={4} sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="grey.400" sx={{ fontWeight: 'medium', fontSize: '0.8rem' }}>
-              THIS TURN
+        <Grid container alignItems="center" spacing={0}>
+          <Grid item xs={3} sx={{ textAlign: 'center' }}>
+            <Typography variant="caption" color="grey.500" sx={{ fontWeight: 'medium', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+              Turn
             </Typography>
             <Typography 
-              variant="h3" 
+              variant="h5" 
               component="div" 
               fontWeight="bold" 
               className="scores"
-              color={wouldBust ? 'error.light' : 'primary.light'}
+              color={wouldBust ? 'error.main' : 'primary.main'}
               sx={{ lineHeight: 1.1 }}
             >
               {totalScore}
             </Typography>
-            {wouldBust && (
-              <Chip 
-                label="BUST" 
-                color="error" 
-                size="small" 
-                sx={{ 
-                  height: '20px', 
-                  mt: 0.5,
-                  '& .MuiChip-label': { px: 1, fontSize: '0.7rem', fontWeight: 'bold' }
-                }} 
-              />
-            )}
           </Grid>
           
-          <Grid item xs={8}>
+          <Grid item xs={9}>
             <Box sx={{ 
               display: 'flex',
-              justifyContent: 'center',
+              justifyContent: 'flex-end',
               alignItems: 'center',
-              height: '100%'
+              height: '100%',
+              px: 1
             }}>
               {dartScores.map((score, index) => (
                 <Chip
@@ -260,9 +249,9 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
                   variant="filled"
                   size="small"
                   sx={{ 
-                    mx: 0.5, 
+                    mx: 0.25, 
                     fontWeight: 'bold',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                    height: '24px',
                   }}
                 />
               ))}
@@ -270,21 +259,33 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
                 <Box
                   key={`empty-${index}`}
                   sx={{ 
-                    width: '32px', 
-                    height: '24px', 
+                    width: '26px', 
+                    height: '20px', 
                     border: '1px dashed', 
-                    borderColor: 'grey.600', 
-                    borderRadius: '16px',
-                    mx: 0.5,
-                    opacity: 0.5,
+                    borderColor: 'grey.700', 
+                    borderRadius: '12px',
+                    mx: 0.25,
+                    opacity: 0.4,
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center'
                   }}
                 >
-                  <Typography variant="caption" color="grey.500">●</Typography>
+                  <Typography variant="caption" color="grey.600">·</Typography>
                 </Box>
               ))}
+              {wouldBust && (
+                <Chip 
+                  label="BUST" 
+                  color="error" 
+                  size="small" 
+                  sx={{ 
+                    ml: 0.5,
+                    height: '20px', 
+                    '& .MuiChip-label': { px: 1, fontSize: '0.6rem', fontWeight: 'bold' }
+                  }} 
+                />
+              )}
             </Box>
           </Grid>
         </Grid>
