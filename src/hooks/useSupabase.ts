@@ -481,30 +481,99 @@ export const useSupabase = () => {
 
   // Rivals
   const getRivals = async (highlighted: boolean = false): Promise<RivalRow[] | null> => {
-    if (!user) return null;
-    
-    const query = supabase
-      .from('rivals')
-      .select()
-      .eq('creator_id', user.id);
-    
-    if (highlighted) {
-      query.eq('highlighted', true);
+    try {
+      let query = supabase
+        .from('rivals')
+        .select('*')
+        .eq('creator_id', user?.id)
+        .order('created_at', { ascending: false });
+      
+      if (highlighted) {
+        query = query.eq('highlighted', true);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching rivals:', error);
+      return null;
     }
-    
-    return fetchData(async () => {
-      const result = await query;
-      return result;
-    });
   };
 
   const getRivalryStats = async (player1Id: string, player2Id: string): Promise<any | null> => {
-    return fetchData(async () => {
-      const result = await supabase
-        .rpc('get_rivalry_stats', { player1_id: player1Id, player2_id: player2Id });
+    try {
+      const { data, error } = await supabase.rpc('get_rivalry_stats', { 
+        player1_id: player1Id, 
+        player2_id: player2Id 
+      });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching rivalry stats:', error);
+      return null;
+    }
+  };
+  
+  const toggleRivalHighlight = async (rivalId: string, highlighted: boolean): Promise<void> => {
+    try {
+      const { error } = await supabase
+        .from('rivals')
+        .update({ highlighted })
+        .eq('id', rivalId)
+        .eq('creator_id', user?.id);
       
-      return result;
-    });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating rival highlight:', error);
+      setError({ message: 'Failed to update rival highlight' });
+    }
+  };
+  
+  const deleteRival = async (rivalId: string): Promise<void> => {
+    try {
+      const { error } = await supabase
+        .from('rivals')
+        .delete()
+        .eq('id', rivalId)
+        .eq('creator_id', user?.id);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting rival:', error);
+      setError({ message: 'Failed to delete rival' });
+    }
+  };
+  
+  const addRival = async (
+    player1Id: string,
+    player1Type: 'user' | 'friend',
+    player2Id: string,
+    player2Type: 'user' | 'friend'
+  ): Promise<RivalRow | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('rivals')
+        .insert({
+          player1_id: player1Id,
+          player1_type: player1Type,
+          player2_id: player2Id,
+          player2_type: player2Type,
+          player1_wins: 0,
+          player2_wins: 0,
+          highlighted: false,
+          creator_id: user?.id
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error adding rival:', error);
+      setError({ message: 'Failed to add new rival' });
+      return null;
+    }
   };
 
   // Helper function to check if a dart value is valid
@@ -1051,6 +1120,9 @@ export const useSupabase = () => {
     // Rivals
     getRivals,
     getRivalryStats,
+    toggleRivalHighlight,
+    deleteRival,
+    addRival,
     // Checkout suggestions
     getCheckoutSuggestion,
   };

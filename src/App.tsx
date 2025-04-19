@@ -23,6 +23,7 @@ import Statistics from '@/pages/Statistics';
 import Profile from '@/pages/Profile';
 import Leaderboard from '@/pages/Leaderboard';
 import NotFound from '@/pages/NotFound';
+import Rivals from '@/pages/Rivals';
 
 const darkTheme = createTheme({
   palette: {
@@ -185,6 +186,7 @@ function App() {
                 <Route path="/stats" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
                 <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/rivals" element={<ProtectedRoute><Rivals /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -261,21 +261,124 @@ RETURNS TABLE (
   player1_wins INTEGER,
   player2_wins INTEGER,
   total_games INTEGER,
-  last_game_date TIMESTAMP WITH TIME ZONE
+  last_game_date TIMESTAMP WITH TIME ZONE,
+  recent_games JSONB,
+  player1_avg_score NUMERIC,
+  player2_avg_score NUMERIC,
+  game_type_breakdown JSONB
 ) AS $$
+DECLARE
+  rival_record RECORD;
 BEGIN
-  RETURN QUERY
+  -- First get the basic rivalry info
   SELECT
-    COALESCE(r.player1_wins, 0) AS player1_wins,
-    COALESCE(r.player2_wins, 0) AS player2_wins,
-    COALESCE(r.player1_wins, 0) + COALESCE(r.player2_wins, 0) AS total_games,
-    g.completed_at AS last_game_date
+    r.player1_wins,
+    r.player2_wins,
+    r.last_game_id
+  INTO rival_record
   FROM rivals r
-  LEFT JOIN games g ON r.last_game_id = g.id
-  WHERE 
-    (r.player1_id = player1_id AND r.player2_id = player2_id) OR
-    (r.player1_id = player2_id AND r.player2_id = player1_id)
+  WHERE (r.player1_id = player1_id AND r.player2_id = player2_id)
+    OR (r.player1_id = player2_id AND r.player2_id = player1_id)
   LIMIT 1;
+  
+  -- Get the last game date
+  SELECT
+    g.completed_at
+  INTO last_game_date
+  FROM games g
+  WHERE g.id = rival_record.last_game_id;
+  
+  -- Get game information where both players participated
+  WITH rival_games AS (
+    SELECT
+      g.id,
+      g.type,
+      g.completed_at,
+      g.status,
+      (SELECT gp.winner FROM game_players gp WHERE gp.game_id = g.id AND gp.player_id = player1_id) AS player1_won,
+      (SELECT gp.winner FROM game_players gp WHERE gp.game_id = g.id AND gp.player_id = player2_id) AS player2_won
+    FROM games g
+    JOIN game_players gp1 ON g.id = gp1.game_id
+    JOIN game_players gp2 ON g.id = gp2.game_id
+    WHERE g.status = 'completed'
+      AND gp1.player_id = player1_id
+      AND gp2.player_id = player2_id
+      AND gp1.player_id <> gp2.player_id
+  ),
+  
+  -- Get most recent games (last 5)
+  recent_games_data AS (
+    SELECT
+      rg.id,
+      rg.type,
+      rg.completed_at,
+      CASE WHEN rg.player1_won THEN 'player1' WHEN rg.player2_won THEN 'player2' ELSE NULL END AS winner
+    FROM rival_games rg
+    ORDER BY rg.completed_at DESC
+    LIMIT 5
+  ),
+  
+  -- Calculate average scores by game type
+  game_type_stats AS (
+    SELECT
+      rg.type,
+      COUNT(*) AS games_count,
+      SUM(CASE WHEN rg.player1_won THEN 1 ELSE 0 END) AS player1_wins,
+      SUM(CASE WHEN rg.player2_won THEN 1 ELSE 0 END) AS player2_wins
+    FROM rival_games rg
+    GROUP BY rg.type
+  ),
+  
+  -- Calculate player average scores
+  player_scores AS (
+    SELECT
+      t.player_id,
+      AVG(
+        CASE 
+          WHEN array_length(t.scores, 1) = 3 THEN t.scores[1] + t.scores[2] + t.scores[3]
+          WHEN array_length(t.scores, 1) = 2 THEN t.scores[1] + t.scores[2]
+          WHEN array_length(t.scores, 1) = 1 THEN t.scores[1]
+          ELSE 0 
+        END
+      ) AS avg_turn_score
+    FROM turns t
+    JOIN rival_games rg ON t.game_id = rg.id
+    WHERE t.player_id IN (player1_id, player2_id)
+    GROUP BY t.player_id
+  )
+  
+  -- Format all the data and return
+  SELECT
+    rival_record.player1_wins,
+    rival_record.player2_wins,
+    rival_record.player1_wins + rival_record.player2_wins AS total_games,
+    last_game_date,
+    COALESCE(jsonb_agg(rg.* ORDER BY rg.completed_at DESC), '[]'::jsonb) AS recent_games,
+    COALESCE((SELECT ps.avg_turn_score FROM player_scores ps WHERE ps.player_id = player1_id), 0) AS player1_avg_score,
+    COALESCE((SELECT ps.avg_turn_score FROM player_scores ps WHERE ps.player_id = player2_id), 0) AS player2_avg_score,
+    COALESCE(jsonb_agg(jsonb_build_object(
+      'game_type', gts.type,
+      'count', gts.games_count,
+      'player1_wins', gts.player1_wins,
+      'player2_wins', gts.player2_wins
+    ) ORDER BY gts.games_count DESC), '[]'::jsonb) AS game_type_breakdown
+  INTO
+    player1_wins,
+    player2_wins,
+    total_games,
+    last_game_date,
+    recent_games,
+    player1_avg_score,
+    player2_avg_score,
+    game_type_breakdown
+  FROM game_type_stats gts
+  LEFT JOIN recent_games_data rg ON true
+  GROUP BY 
+    rival_record.player1_wins,
+    rival_record.player2_wins,
+    last_game_date;
+    
+  RETURN NEXT;
 END;
 $$ LANGUAGE plpgsql;
 
