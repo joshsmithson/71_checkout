@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -27,6 +27,9 @@ import StatisticCard from '@/components/statistics/StatisticCard';
 import DetailedStatsCard from '@/components/statistics/DetailedStatsCard';
 import GameTypeStats from '@/components/statistics/GameTypeStats';
 import RecentGames from '@/components/statistics/RecentGames';
+import PerformanceTrendChart from '@/components/statistics/PerformanceTrendChart';
+import GameTypeComparisonChart from '@/components/statistics/GameTypeComparisonChart';
+import ScoreDistributionChart from '@/components/statistics/ScoreDistributionChart';
 
 type StatisticData = {
   player_id: string;
@@ -56,7 +59,7 @@ const Statistics = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { getPlayerStatistics, getFriends, getGames, getGamePlayers, loading, error } = useSupabase();
+  const { getPlayerStatistics, getPlayerStatisticsTrend, getScoreDistribution, getFriends, getGames, getGamePlayers, loading, error } = useSupabase();
   
   const [tabValue, setTabValue] = useState(0);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
@@ -66,6 +69,9 @@ const Statistics = () => {
   const [friends, setFriends] = useState<any[]>([]);
   const [recentGames, setRecentGames] = useState<GameHistoryItem[]>([]);
   const [loadingGames, setLoadingGames] = useState(false);
+  const [trendData, setTrendData] = useState<any[]>([]);
+  const [scoreDistribution, setScoreDistribution] = useState<any[]>([]);
+  const [loadingCharts, setLoadingCharts] = useState(false);
   
   // Fetch user's statistics on component mount
   useEffect(() => {
@@ -81,6 +87,17 @@ const Statistics = () => {
     const stats = await getPlayerStatistics(playerId, playerType);
     if (stats) {
       setStatistics(stats);
+      
+      // Load chart data
+      setLoadingCharts(true);
+      const [trendData, distributionData] = await Promise.all([
+        getPlayerStatisticsTrend(playerId, playerType),
+        getScoreDistribution(playerId, playerType, gameTypeFilter)
+      ]);
+      
+      if (trendData) setTrendData(trendData);
+      if (distributionData) setScoreDistribution(distributionData);
+      setLoadingCharts(false);
     }
   };
   
@@ -162,8 +179,21 @@ const Statistics = () => {
     }
   };
   
-  const handleGameTypeChange = (event: any) => {
-    setGameTypeFilter(event.target.value);
+  const handleGameTypeChange = async (event: any) => {
+    const newGameType = event.target.value;
+    setGameTypeFilter(newGameType);
+    
+    // Reload score distribution when game type changes
+    if (selectedPlayerId) {
+      setLoadingCharts(true);
+      const distributionData = await getScoreDistribution(
+        selectedPlayerId, 
+        selectedPlayerType, 
+        newGameType
+      );
+      if (distributionData) setScoreDistribution(distributionData);
+      setLoadingCharts(false);
+    }
   };
   
   const handleViewGame = (gameId: string) => {
@@ -186,10 +216,7 @@ const Statistics = () => {
         ? (acc.checkout_percentage * acc.games_played + stat.checkout_percentage * stat.games_played) / 
           (acc.games_played + stat.games_played)
         : stat.checkout_percentage,
-      average_per_dart: acc.total_score > 0 
-        ? (acc.total_score + stat.total_score) / 
-          ((acc.games_played + stat.games_played) * 3) // Assuming 3 darts per turn
-        : stat.average_per_dart,
+      average_per_dart: stat.average_per_dart,
       count_180: acc.count_180 + stat.count_180,
     };
   }, {
@@ -222,6 +249,15 @@ const Statistics = () => {
     win_percentage: stat.games_played > 0 ? (stat.games_won / stat.games_played) * 100 : 0,
     average_per_dart: stat.average_per_dart,
     highest_turn: stat.highest_turn
+  }));
+
+  // Format data for game type comparison chart
+  const gameTypeComparisonData = statistics.map(stat => ({
+    gameType: stat.game_type,
+    averagePerDart: stat.average_per_dart,
+    winPercentage: stat.games_played > 0 ? (stat.games_won / stat.games_played) * 100 : 0,
+    highestTurn: stat.highest_turn,
+    checkoutPercentage: stat.checkout_percentage
   }));
 
   return (
@@ -311,6 +347,27 @@ const Statistics = () => {
               icon={<ScoreboardIcon fontSize="large" />} 
             />
           </Grid>
+          
+          {/* Charts Section */}
+          {loadingCharts ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              {trendData.length > 1 && (
+                <PerformanceTrendChart data={trendData} />
+              )}
+              
+              {gameTypeComparisonData.length > 1 && (
+                <GameTypeComparisonChart data={gameTypeComparisonData} />
+              )}
+              
+              {scoreDistribution.length > 0 && (
+                <ScoreDistributionChart data={scoreDistribution} />
+              )}
+            </>
+          )}
           
           <DetailedStatsCard 
             title="Detailed Statistics" 

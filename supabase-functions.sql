@@ -12,12 +12,24 @@ BEGIN
         gp.winner,
         NEW.type AS game_type,
         (
-          SELECT COALESCE(SUM(CASE WHEN array_length(t.scores, 1) = 3 THEN t.scores[1] + t.scores[2] + t.scores[3] ELSE 0 END), 0)
+          SELECT COALESCE(SUM(
+            CASE 
+              WHEN array_length(t.scores, 1) = 3 THEN t.scores[1] + t.scores[2] + t.scores[3]
+              WHEN array_length(t.scores, 1) = 2 THEN t.scores[1] + t.scores[2]
+              WHEN array_length(t.scores, 1) = 1 THEN t.scores[1]
+              ELSE 0 
+            END), 0)
           FROM turns t
           WHERE t.game_id = NEW.id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
         ) AS total_score,
         (
-          SELECT COALESCE(MAX(CASE WHEN array_length(t.scores, 1) = 3 THEN t.scores[1] + t.scores[2] + t.scores[3] ELSE 0 END), 0)
+          SELECT COALESCE(MAX(
+            CASE 
+              WHEN array_length(t.scores, 1) = 3 THEN t.scores[1] + t.scores[2] + t.scores[3]
+              WHEN array_length(t.scores, 1) = 2 THEN t.scores[1] + t.scores[2]
+              WHEN array_length(t.scores, 1) = 1 THEN t.scores[1]
+              ELSE 0 
+            END), 0)
           FROM turns t
           WHERE t.game_id = NEW.id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
         ) AS highest_turn,
@@ -88,8 +100,21 @@ BEGIN
         (statistics.games_played + 1)
       ),
       average_per_dart = (
-        (statistics.average_per_dart * statistics.games_played + EXCLUDED.average_per_dart) / 
-        (statistics.games_played + 1)
+        (statistics.total_score + EXCLUDED.total_score)::NUMERIC / 
+        (SELECT COALESCE(SUM(array_length(t.scores, 1)), 0) 
+         FROM turns t 
+         WHERE t.player_id = EXCLUDED.player_id 
+         AND t.player_type = EXCLUDED.player_type 
+         AND t.game_id IN (
+           SELECT g.id FROM games g 
+           WHERE g.status = 'completed' 
+           AND (g.id = NEW.id OR g.id IN (
+             SELECT DISTINCT gp.game_id 
+             FROM game_players gp 
+             WHERE gp.player_id = EXCLUDED.player_id 
+             AND gp.player_type = EXCLUDED.player_type
+           ))
+         ))
       ),
       count_180 = statistics.count_180 + EXCLUDED.count_180,
       last_updated = NOW();

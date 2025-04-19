@@ -336,6 +336,137 @@ export const useSupabase = () => {
     });
   };
 
+  // Get statistics trend data for charts 
+  const getPlayerStatisticsTrend = async (playerId: string, playerType: 'user' | 'friend'): Promise<any[] | null> => {
+    try {
+      // Get all turns for this player
+      const { data: turns, error: turnsError } = await supabase
+        .from('turns')
+        .select(`
+          id,
+          game_id,
+          scores,
+          remaining,
+          checkout,
+          created_at,
+          games!inner(type, status)
+        `)
+        .eq('player_id', playerId)
+        .eq('player_type', playerType)
+        .eq('games.status', 'completed')
+        .order('created_at', { ascending: true });
+      
+      if (turnsError) throw turnsError;
+      if (!turns || turns.length === 0) return [];
+      
+      // Group turns by month for trend data
+      const monthlyData: { [key: string]: any } = {};
+      
+      for (const turn of turns) {
+        const date = new Date(turn.created_at);
+        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!monthlyData[monthYear]) {
+          monthlyData[monthYear] = {
+            date: monthYear,
+            totalScore: 0,
+            totalDarts: 0,
+            turnCount: 0,
+            highestTurn: 0,
+            games: new Set(),
+            wins: 0
+          };
+        }
+        
+        // Calculate score for this turn
+        const turnScore = turn.scores.reduce((acc: number, score: number) => acc + score, 0);
+        const dartCount = turn.scores.length;
+        
+        monthlyData[monthYear].totalScore += turnScore;
+        monthlyData[monthYear].totalDarts += dartCount;
+        monthlyData[monthYear].turnCount++;
+        monthlyData[monthYear].highestTurn = Math.max(monthlyData[monthYear].highestTurn, turnScore);
+        monthlyData[monthYear].games.add(turn.game_id);
+      }
+      
+      // Get wins for each month
+      for (const monthYear in monthlyData) {
+        const gameIds = Array.from(monthlyData[monthYear].games);
+        
+        const { data: winners, error: winnersError } = await supabase
+          .from('game_players')
+          .select('game_id')
+          .eq('player_id', playerId)
+          .eq('player_type', playerType)
+          .eq('winner', true)
+          .in('game_id', gameIds);
+        
+        if (winnersError) throw winnersError;
+        
+        monthlyData[monthYear].wins = winners?.length || 0;
+      }
+      
+      // Format the data for charts
+      return Object.entries(monthlyData).map(([monthYear, data]) => {
+        const gamesPlayed = data.games.size;
+        return {
+          date: monthYear,
+          averagePerDart: data.totalDarts > 0 ? data.totalScore / data.totalDarts : 0,
+          winPercentage: gamesPlayed > 0 ? (data.wins / gamesPlayed) * 100 : 0,
+          highestTurn: data.highestTurn,
+          gamesPlayed
+        };
+      });
+      
+    } catch (error) {
+      console.error('Error fetching statistics trend data:', error);
+      return null;
+    }
+  };
+
+  // Get score distribution data
+  const getScoreDistribution = async (playerId: string, playerType: 'user' | 'friend', gameType?: string): Promise<any[] | null> => {
+    try {
+      // Build query with game type filter if provided
+      let query = supabase
+        .from('turns')
+        .select(`
+          id,
+          scores,
+          games!inner(type, status)
+        `)
+        .eq('player_id', playerId)
+        .eq('player_type', playerType)
+        .eq('games.status', 'completed');
+        
+      if (gameType && gameType !== 'all') {
+        query = query.eq('games.type', gameType);
+      }
+      
+      const { data: turns, error } = await query;
+      
+      if (error) throw error;
+      if (!turns || turns.length === 0) return [];
+      
+      // Calculate score distribution
+      const scoreDistribution: { [key: number]: number } = {};
+      
+      for (const turn of turns) {
+        const turnScore = turn.scores.reduce((acc: number, score: number) => acc + score, 0);
+        scoreDistribution[turnScore] = (scoreDistribution[turnScore] || 0) + 1;
+      }
+      
+      // Format for chart
+      return Object.entries(scoreDistribution)
+        .map(([score, count]) => ({ score: parseInt(score), count }))
+        .sort((a, b) => a.score - b.score);
+      
+    } catch (error) {
+      console.error('Error fetching score distribution data:', error);
+      return null;
+    }
+  };
+
   // Leaderboard
   const getLeaderboard = async (): Promise<any[] | null> => {
     if (!user) return null;
@@ -913,6 +1044,8 @@ export const useSupabase = () => {
     addFriend,
     // Statistics operations
     getPlayerStatistics,
+    getPlayerStatisticsTrend,
+    getScoreDistribution,
     // Leaderboard
     getLeaderboard,
     // Rivals
