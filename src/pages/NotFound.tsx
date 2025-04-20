@@ -1,9 +1,10 @@
+import React from 'react';
 import { Box, Button, Container, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 
-const MotionBox = motion(Box);
+const MotionBox = motion.create(Box);
 
 const NotFound = () => {
   const navigate = useNavigate();

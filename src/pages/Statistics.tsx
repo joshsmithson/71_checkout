@@ -30,6 +30,9 @@ import RecentGames from '@/components/statistics/RecentGames';
 import PerformanceTrendChart from '@/components/statistics/PerformanceTrendChart';
 import GameTypeComparisonChart from '@/components/statistics/GameTypeComparisonChart';
 import ScoreDistributionChart from '@/components/statistics/ScoreDistributionChart';
+import { CheckoutSuccessChart } from '@/components/statistics/CheckoutSuccessChart';
+import { AverageTurnsChart } from '@/components/statistics/AverageTurnsChart';
+import { ScoreHeatmap } from '@/components/statistics/ScoreHeatmap';
 
 type StatisticData = {
   player_id: string;
@@ -59,7 +62,19 @@ const Statistics = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { getPlayerStatistics, getPlayerStatisticsTrend, getScoreDistribution, getFriends, getGames, getGamePlayers, loading, error } = useSupabase();
+  const { 
+    getPlayerStatistics, 
+    getPlayerStatisticsTrend, 
+    getScoreDistribution, 
+    getFriends, 
+    getGames, 
+    getGamePlayers, 
+    getAverageTurnsPerGameType,
+    getCheckoutSuccessData,
+    getDartScoreFrequency,
+    loading, 
+    error 
+  } = useSupabase();
   
   const [tabValue, setTabValue] = useState(0);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
@@ -71,6 +86,9 @@ const Statistics = () => {
   const [loadingGames, setLoadingGames] = useState(false);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [scoreDistribution, setScoreDistribution] = useState<any[]>([]);
+  const [checkoutSuccessData, setCheckoutSuccessData] = useState<any[]>([]);
+  const [averageTurnsData, setAverageTurnsData] = useState<any[]>([]);
+  const [dartScoreFrequency, setDartScoreFrequency] = useState<any[]>([]);
   const [loadingCharts, setLoadingCharts] = useState(false);
   
   // Fetch user's statistics on component mount
@@ -90,13 +108,26 @@ const Statistics = () => {
       
       // Load chart data
       setLoadingCharts(true);
-      const [trendData, distributionData] = await Promise.all([
+      const [
+        trendData, 
+        distributionData, 
+        checkoutData, 
+        turnsData,
+        scoreFrequency
+      ] = await Promise.all([
         getPlayerStatisticsTrend(playerId, playerType),
-        getScoreDistribution(playerId, playerType, gameTypeFilter)
+        getScoreDistribution(playerId, playerType, gameTypeFilter),
+        getCheckoutSuccessData(playerId, playerType),
+        getAverageTurnsPerGameType(playerId, playerType),
+        getDartScoreFrequency(playerId, playerType)
       ]);
       
       if (trendData) setTrendData(trendData);
       if (distributionData) setScoreDistribution(distributionData);
+      if (checkoutData) setCheckoutSuccessData(checkoutData);
+      if (turnsData) setAverageTurnsData(turnsData);
+      if (scoreFrequency) setDartScoreFrequency(scoreFrequency);
+      
       setLoadingCharts(false);
     }
   };
@@ -260,6 +291,12 @@ const Statistics = () => {
     checkoutPercentage: stat.checkout_percentage
   }));
 
+  // Format checkout success data for compatibility with the chart
+  const formattedCheckoutData = checkoutSuccessData.map(item => ({
+    ...item,
+    successes: item.success
+  }));
+
   return (
     <Container maxWidth="md" sx={{ py: 4, pb: 10 }}>
       <Box sx={{ mb: 4 }}>
@@ -356,15 +393,40 @@ const Statistics = () => {
           ) : (
             <>
               {trendData.length > 1 && (
-                <PerformanceTrendChart data={trendData} />
+                <Box sx={{ mb: 4 }}>
+                  <PerformanceTrendChart data={trendData} />
+                </Box>
               )}
               
               {gameTypeComparisonData.length > 1 && (
-                <GameTypeComparisonChart data={gameTypeComparisonData} />
+                <Box sx={{ mb: 4 }}>
+                  <GameTypeComparisonChart data={gameTypeComparisonData} />
+                </Box>
+              )}
+              
+              {/* New visualizations */}
+              {averageTurnsData && averageTurnsData.length > 0 && (
+                <Box sx={{ mb: 4 }}>
+                  <AverageTurnsChart data={averageTurnsData} />
+                </Box>
+              )}
+              
+              {formattedCheckoutData && formattedCheckoutData.length > 0 && (
+                <Box sx={{ mb: 4 }}>
+                  <CheckoutSuccessChart data={formattedCheckoutData} />
+                </Box>
+              )}
+              
+              {dartScoreFrequency && dartScoreFrequency.length > 0 && (
+                <Box sx={{ mb: 4 }}>
+                  <ScoreHeatmap data={dartScoreFrequency} />
+                </Box>
               )}
               
               {scoreDistribution.length > 0 && (
-                <ScoreDistributionChart data={scoreDistribution} />
+                <Box sx={{ mb: 4 }}>
+                  <ScoreDistributionChart data={scoreDistribution} />
+                </Box>
               )}
             </>
           )}

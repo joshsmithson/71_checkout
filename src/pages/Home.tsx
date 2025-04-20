@@ -36,8 +36,8 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-const MotionBox = motion(Box);
-const MotionCard = motion(Card);
+const MotionBox = motion.create(Box);
+const MotionCard = motion.create(Card);
 
 interface Game {
   id: string;

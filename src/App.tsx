@@ -8,7 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { UIProvider } from '@/contexts/UIContext';
 
 // Components
-import BottomNavigation from '@/components/layout/BottomNavigation';
+import BottomNav from '@/components/layout/BottomNav';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import AuthCallback from '@/components/auth/AuthCallback';
 import AuthDebug from '@/components/auth/AuthDebug';
@@ -192,7 +192,7 @@ function App() {
               </Routes>
             </AnimatePresence>
             
-            {showNav && <BottomNavigation />}
+            {showNav && <BottomNav />}
           </UIProvider>
         </AuthProvider>
       </ThemeProvider>

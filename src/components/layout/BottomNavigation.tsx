@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Paper, BottomNavigation as MuiBottomNavigation, BottomNavigationAction } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import HomeIcon from '@mui/icons-material/Home';
-import AddIcon from '@mui/icons-material/Add';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PersonIcon from '@mui/icons-material/Person';
 
@@ -35,12 +34,10 @@ const BottomNavigation = () => {
     const path = location.pathname;
     if (path === '/') {
       setValue(0);
-    } else if (path === '/game/new') {
+    } else if (path === '/stats') {
       setValue(1);
-    } else if (path === '/stats' || path === '/leaderboard') {
-      setValue(2);
     } else if (path === '/profile') {
-      setValue(3);
+      setValue(2);
     }
   }, [location]);
 
@@ -52,12 +49,9 @@ const BottomNavigation = () => {
         navigate('/');
         break;
       case 1:
-        navigate('/game/new');
-        break;
-      case 2:
         navigate('/stats');
         break;
-      case 3:
+      case 2:
         navigate('/profile');
         break;
       default:
@@ -73,7 +67,6 @@ const BottomNavigation = () => {
         showLabels
       >
         <NavigationAction label="Home" icon={<HomeIcon />} />
-        <NavigationAction label="New Game" icon={<AddIcon />} />
         <NavigationAction label="Stats" icon={<BarChartIcon />} />
         <NavigationAction label="Profile" icon={<PersonIcon />} />
       </MuiBottomNavigation>

@@ -82,7 +82,7 @@ const RecentGames = ({ games, onViewGame }: RecentGamesProps) => {
                   </Box>
                 }
                 secondary={
-                  <Box sx={{ mt: 0.5 }}>
+                  <Box component="span" sx={{ mt: 0.5, display: 'block' }}>
                     {game.players.map((player) => (
                       <Typography 
                         key={player.id} 

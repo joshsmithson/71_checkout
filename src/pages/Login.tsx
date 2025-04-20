@@ -6,7 +6,7 @@ import SportsBar from '@mui/icons-material/SportsBar';
 import { useState, useEffect } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 
-const MotionBox = motion(Box);
+const MotionBox = motion.create(Box);
 
 const Login = () => {
   const { signIn, loading, isSigningIn, user } = useAuth();

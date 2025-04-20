@@ -181,6 +181,135 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to revert statistics when a completed game is deleted
+CREATE OR REPLACE FUNCTION revert_statistics_for_deleted_game(game_id UUID)
+RETURNS VOID AS $$
+DECLARE
+  game_record RECORD;
+BEGIN
+  -- First, check if the game exists and was completed
+  SELECT * INTO game_record FROM games WHERE id = game_id;
+  
+  -- If game doesn't exist or wasn't completed, do nothing
+  IF NOT FOUND OR game_record.status <> 'completed' THEN
+    RAISE NOTICE 'Game % not found or was not completed. No statistics to revert.', game_id;
+    RETURN;
+  END IF;
+  
+  -- Get all player data and turn data needed to revert statistics
+  WITH game_summary AS (
+    SELECT 
+      gp.player_id,
+      gp.player_type,
+      gp.winner,
+      game_record.type AS game_type,
+      (
+        SELECT COALESCE(SUM(
+          CASE 
+            WHEN array_length(t.scores, 1) = 3 THEN t.scores[1] + t.scores[2] + t.scores[3]
+            WHEN array_length(t.scores, 1) = 2 THEN t.scores[1] + t.scores[2]
+            WHEN array_length(t.scores, 1) = 1 THEN t.scores[1]
+            ELSE 0 
+          END), 0)
+        FROM turns t
+        WHERE t.game_id = game_id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
+      ) AS total_score,
+      (
+        SELECT COUNT(*)
+        FROM turns t
+        WHERE t.game_id = game_id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
+          AND array_length(t.scores, 1) = 3 AND t.scores[1] + t.scores[2] + t.scores[3] = 180
+      ) AS count_180,
+      (
+        SELECT COALESCE(SUM(array_length(t.scores, 1)), 0)
+        FROM turns t
+        WHERE t.game_id = game_id AND t.player_id = gp.player_id AND t.player_type = gp.player_type
+      ) AS total_darts
+    FROM game_players gp
+    WHERE gp.game_id = game_id
+  )
+  -- Update statistics for each player
+  UPDATE statistics s
+  SET 
+    games_played = s.games_played - 1,
+    games_won = s.games_won - (CASE WHEN gs.winner THEN 1 ELSE 0 END),
+    total_score = s.total_score - gs.total_score,
+    -- Don't adjust highest_turn as it's a max value that might apply to other games
+    -- Recalculate average_per_dart based on updated totals
+    average_per_dart = CASE 
+      WHEN s.games_played - 1 > 0 THEN
+        (s.total_score - gs.total_score)::NUMERIC / 
+        (SELECT COALESCE(SUM(array_length(t.scores, 1)), 0) 
+         FROM turns t 
+         WHERE t.player_id = s.player_id 
+         AND t.player_type = s.player_type 
+         AND t.game_id IN (
+           SELECT g.id FROM games g 
+           WHERE g.status = 'completed' 
+           AND g.id <> game_id
+         ))
+      ELSE 0
+    END,
+    count_180 = s.count_180 - gs.count_180,
+    last_updated = NOW()
+  FROM game_summary gs
+  WHERE s.player_id = gs.player_id
+    AND s.player_type = gs.player_type
+    AND s.game_type = gs.game_type;
+    
+  -- Also revert rivalry updates
+  WITH game_winners AS (
+    SELECT 
+      player_id,
+      player_type
+    FROM game_players
+    WHERE game_id = game_id AND winner = TRUE
+  ),
+  game_losers AS (
+    SELECT 
+      player_id,
+      player_type
+    FROM game_players
+    WHERE game_id = game_id AND winner = FALSE
+  ),
+  rivalry_pairs AS (
+    SELECT 
+      w.player_id AS winner_id,
+      w.player_type AS winner_type,
+      l.player_id AS loser_id,
+      l.player_type AS loser_type
+    FROM game_winners w
+    CROSS JOIN game_losers l
+  )
+  -- For each winner-loser pair, update the rivalry record
+  UPDATE rivals r
+  SET
+    player1_wins = CASE 
+      WHEN r.player1_id = rp.winner_id THEN GREATEST(r.player1_wins - 1, 0)
+      ELSE r.player1_wins
+    END,
+    player2_wins = CASE 
+      WHEN r.player2_id = rp.winner_id THEN GREATEST(r.player2_wins - 1, 0)
+      ELSE r.player2_wins
+    END,
+    -- Don't update last_game_id as it should point to a valid game
+    last_game_id = (
+      SELECT g.id 
+      FROM games g
+      JOIN game_players gp1 ON g.id = gp1.game_id AND gp1.player_id = r.player1_id AND gp1.player_type = r.player1_type
+      JOIN game_players gp2 ON g.id = gp2.game_id AND gp2.player_id = r.player2_id AND gp2.player_type = r.player2_type
+      WHERE g.status = 'completed' AND g.id <> game_id
+      ORDER BY g.completed_at DESC NULLS LAST
+      LIMIT 1
+    )
+  FROM rivalry_pairs rp
+  WHERE (r.player1_id = rp.winner_id AND r.player2_id = rp.loser_id)
+     OR (r.player2_id = rp.winner_id AND r.player1_id = rp.loser_id);
+     
+  RAISE NOTICE 'Statistics reverted for game %', game_id;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Trigger to update statistics when a game is completed
 CREATE TRIGGER update_stats_on_game_complete
 AFTER UPDATE ON games
@@ -256,129 +385,90 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to get rivalry stats between two players
-CREATE OR REPLACE FUNCTION get_rivalry_stats(player1_id UUID, player2_id UUID)
-RETURNS TABLE (
-  player1_wins INTEGER,
-  player2_wins INTEGER,
-  total_games INTEGER,
-  last_game_date TIMESTAMP WITH TIME ZONE,
-  recent_games JSONB,
-  player1_avg_score NUMERIC,
-  player2_avg_score NUMERIC,
-  game_type_breakdown JSONB
-) AS $$
+DROP FUNCTION IF EXISTS get_rivalry_stats(UUID, UUID);
+
+CREATE OR REPLACE FUNCTION get_rivalry_stats(param_player1_id UUID, param_player2_id UUID)
+RETURNS JSON AS $$
 DECLARE
-  rival_record RECORD;
+  result JSON;
 BEGIN
-  -- First get the basic rivalry info
-  SELECT
-    r.player1_wins,
-    r.player2_wins,
-    r.last_game_id
-  INTO rival_record
-  FROM rivals r
-  WHERE (r.player1_id = player1_id AND r.player2_id = player2_id)
-    OR (r.player1_id = player2_id AND r.player2_id = player1_id)
-  LIMIT 1;
-  
-  -- Get the last game date
-  SELECT
-    g.completed_at
-  INTO last_game_date
-  FROM games g
-  WHERE g.id = rival_record.last_game_id;
-  
-  -- Get game information where both players participated
-  WITH rival_games AS (
-    SELECT
+  WITH game_results AS (
+    SELECT 
       g.id,
+      g.status,
       g.type,
       g.completed_at,
-      g.status,
-      (SELECT gp.winner FROM game_players gp WHERE gp.game_id = g.id AND gp.player_id = player1_id) AS player1_won,
-      (SELECT gp.winner FROM game_players gp WHERE gp.game_id = g.id AND gp.player_id = player2_id) AS player2_won
+      (
+        SELECT gp.player_id
+        FROM game_players gp
+        WHERE gp.game_id = g.id AND gp.winner = TRUE
+        LIMIT 1
+      ) AS winner_id
     FROM games g
-    JOIN game_players gp1 ON g.id = gp1.game_id
-    JOIN game_players gp2 ON g.id = gp2.game_id
-    WHERE g.status = 'completed'
-      AND gp1.player_id = player1_id
-      AND gp2.player_id = player2_id
-      AND gp1.player_id <> gp2.player_id
+    WHERE 
+      g.status = 'completed' AND
+      EXISTS (
+        SELECT 1 FROM game_players gp1
+        WHERE gp1.game_id = g.id AND gp1.player_id = param_player1_id
+      ) AND
+      EXISTS (
+        SELECT 1 FROM game_players gp2
+        WHERE gp2.game_id = g.id AND gp2.player_id = param_player2_id
+      )
   ),
-  
-  -- Get most recent games (last 5)
-  recent_games_data AS (
-    SELECT
-      rg.id,
-      rg.type,
-      rg.completed_at,
-      CASE WHEN rg.player1_won THEN 'player1' WHEN rg.player2_won THEN 'player2' ELSE NULL END AS winner
-    FROM rival_games rg
-    ORDER BY rg.completed_at DESC
+  rivalry_stats AS (
+    SELECT 
+      SUM(CASE WHEN winner_id = param_player1_id THEN 1 ELSE 0 END) AS player1_wins,
+      SUM(CASE WHEN winner_id = param_player2_id THEN 1 ELSE 0 END) AS player2_wins,
+      COUNT(*) AS total_games,
+      MAX(completed_at) AS last_game_date
+    FROM game_results
+  ),
+  recent_games AS (
+    SELECT 
+      jsonb_build_object(
+        'id', gr.id,
+        'type', gr.type,
+        'completed_at', gr.completed_at,
+        'winner', CASE 
+          WHEN gr.winner_id = param_player1_id THEN 'player1'
+          WHEN gr.winner_id = param_player2_id THEN 'player2'
+          ELSE null
+        END
+      ) AS game_data
+    FROM game_results gr
+    ORDER BY gr.completed_at DESC
     LIMIT 5
   ),
-  
-  -- Calculate average scores by game type
-  game_type_stats AS (
-    SELECT
-      rg.type,
+  game_type_breakdown AS (
+    SELECT 
+      gr.type,
       COUNT(*) AS games_count,
-      SUM(CASE WHEN rg.player1_won THEN 1 ELSE 0 END) AS player1_wins,
-      SUM(CASE WHEN rg.player2_won THEN 1 ELSE 0 END) AS player2_wins
-    FROM rival_games rg
-    GROUP BY rg.type
-  ),
-  
-  -- Calculate player average scores
-  player_scores AS (
-    SELECT
-      t.player_id,
-      AVG(
-        CASE 
-          WHEN array_length(t.scores, 1) = 3 THEN t.scores[1] + t.scores[2] + t.scores[3]
-          WHEN array_length(t.scores, 1) = 2 THEN t.scores[1] + t.scores[2]
-          WHEN array_length(t.scores, 1) = 1 THEN t.scores[1]
-          ELSE 0 
-        END
-      ) AS avg_turn_score
-    FROM turns t
-    JOIN rival_games rg ON t.game_id = rg.id
-    WHERE t.player_id IN (player1_id, player2_id)
-    GROUP BY t.player_id
+      SUM(CASE WHEN gr.winner_id = param_player1_id THEN 1 ELSE 0 END) AS player1_wins,
+      SUM(CASE WHEN gr.winner_id = param_player2_id THEN 1 ELSE 0 END) AS player2_wins
+    FROM game_results gr
+    GROUP BY gr.type
   )
+  SELECT json_build_object(
+    'player1_wins', COALESCE((SELECT player1_wins FROM rivalry_stats), 0),
+    'player2_wins', COALESCE((SELECT player2_wins FROM rivalry_stats), 0),
+    'total_games', COALESCE((SELECT total_games FROM rivalry_stats), 0),
+    'last_game_date', (SELECT last_game_date FROM rivalry_stats),
+    'recent_games', COALESCE((SELECT jsonb_agg(game_data) FROM recent_games), '[]'::jsonb),
+    'game_type_breakdown', COALESCE(
+      (SELECT jsonb_agg(
+        jsonb_build_object(
+          'game_type', type,
+          'count', games_count,
+          'player1_wins', player1_wins,
+          'player2_wins', player2_wins
+        )
+      ) FROM game_type_breakdown),
+      '[]'::jsonb
+    )
+  ) INTO result;
   
-  -- Format all the data and return
-  SELECT
-    rival_record.player1_wins,
-    rival_record.player2_wins,
-    rival_record.player1_wins + rival_record.player2_wins AS total_games,
-    last_game_date,
-    COALESCE(jsonb_agg(rg.* ORDER BY rg.completed_at DESC), '[]'::jsonb) AS recent_games,
-    COALESCE((SELECT ps.avg_turn_score FROM player_scores ps WHERE ps.player_id = player1_id), 0) AS player1_avg_score,
-    COALESCE((SELECT ps.avg_turn_score FROM player_scores ps WHERE ps.player_id = player2_id), 0) AS player2_avg_score,
-    COALESCE(jsonb_agg(jsonb_build_object(
-      'game_type', gts.type,
-      'count', gts.games_count,
-      'player1_wins', gts.player1_wins,
-      'player2_wins', gts.player2_wins
-    ) ORDER BY gts.games_count DESC), '[]'::jsonb) AS game_type_breakdown
-  INTO
-    player1_wins,
-    player2_wins,
-    total_games,
-    last_game_date,
-    recent_games,
-    player1_avg_score,
-    player2_avg_score,
-    game_type_breakdown
-  FROM game_type_stats gts
-  LEFT JOIN recent_games_data rg ON true
-  GROUP BY 
-    rival_record.player1_wins,
-    rival_record.player2_wins,
-    last_game_date;
-    
-  RETURN NEXT;
+  RETURN result;
 END;
 $$ LANGUAGE plpgsql;
 

@@ -38,7 +38,7 @@ import AddIcon from '@mui/icons-material/Add';
 import PersonIcon from '@mui/icons-material/Person';
 import SportsIcon from '@mui/icons-material/Sports';
 
-const MotionCard = motion(Card);
+const MotionCard = motion.create(Card);
 
 const GameSetup = () => {
   const navigate = useNavigate();

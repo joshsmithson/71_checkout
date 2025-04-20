@@ -132,6 +132,25 @@ export const useSupabase = () => {
         // Continue with deletion even if we can't load players
       }
       
+      // Update statistics if the game was completed - must be done before deletion
+      if (game.status === 'completed') {
+        try {
+          // Call the Supabase function to recalculate statistics
+          const { data, error } = await supabase.rpc('recalculate_statistics_after_game_deletion', {
+            game_id: gameId
+          });
+          
+          if (error) {
+            console.error('Error recalculating statistics:', error);
+            // Continue with deletion even if statistics recalculation fails
+          } else {
+            console.log(`Statistics recalculated for game ${gameId}`);
+          }
+        } catch (error) {
+          console.error('Error calling recalculate_statistics_after_game_deletion:', error);
+        }
+      }
+      
       // Begin a transaction to ensure all data is deleted consistently
       // Delete in order: turns -> game_players -> game
       
@@ -163,14 +182,6 @@ export const useSupabase = () => {
       
       if (deleteGameError) {
         throw new Error(`Failed to delete game: ${deleteGameError.message}`);
-      }
-      
-      // 4. Update statistics if the game was completed
-      if (game.status === 'completed' && turns && gamePlayers) {
-        // We should update the statistics for all players involved
-        // This would need to be done via a service function or stored procedure on the server
-        // For now, we'll just log a message
-        console.log(`Game ${gameId} deleted successfully. Statistics need to be updated.`);
       }
       
       // Return success
@@ -494,6 +505,51 @@ export const useSupabase = () => {
       
       const { data, error } = await query;
       if (error) throw error;
+      
+      // Handle potential duplicate rivalries by consolidating them
+      if (data && data.length > 0) {
+        // Create a map to store consolidated rivalries
+        const rivalMap = new Map();
+        
+        // Process each rivalry record
+        data.forEach(rival => {
+          // Create a unique key for each player pair, regardless of order
+          const playerIds = [rival.player1_id, rival.player2_id].sort().join('|');
+          
+          if (!rivalMap.has(playerIds)) {
+            // First occurrence of this player pair
+            rivalMap.set(playerIds, rival);
+          } else {
+            // Found a duplicate pair, merge the stats
+            const existingRival = rivalMap.get(playerIds);
+            
+            // Determine if the players are in the same order
+            const sameOrder = existingRival.player1_id === rival.player1_id;
+            
+            if (sameOrder) {
+              // Same player order, just add the wins
+              existingRival.player1_wins += rival.player1_wins;
+              existingRival.player2_wins += rival.player2_wins;
+            } else {
+              // Reversed player order, add wins to the opposite player
+              existingRival.player1_wins += rival.player2_wins;
+              existingRival.player2_wins += rival.player1_wins;
+            }
+            
+            // Use the more recent last_game_id and highlighted status
+            if (rival.last_game_id) {
+              existingRival.last_game_id = rival.last_game_id;
+            }
+            if (rival.highlighted) {
+              existingRival.highlighted = true;
+            }
+          }
+        });
+        
+        // Convert map back to array
+        return Array.from(rivalMap.values());
+      }
+      
       return data;
     } catch (error) {
       console.error('Error fetching rivals:', error);
@@ -504,13 +560,13 @@ export const useSupabase = () => {
   const getRivalryStats = async (player1Id: string, player2Id: string): Promise<any | null> => {
     try {
       const { data, error } = await supabase.rpc('get_rivalry_stats', { 
-        player1_id: player1Id, 
-        player2_id: player2Id 
+        param_player1_id: player1Id, 
+        param_player2_id: player2Id 
       });
       if (error) throw error;
       return data;
-    } catch (error) {
-      console.error('Error fetching rivalry stats:', error);
+    } catch (err) {
+      console.error('Error fetching rivalry stats:', err);
       return null;
     }
   };
@@ -1091,6 +1147,169 @@ export const useSupabase = () => {
     }
   }, []);
 
+  // Get average turns per game type
+  const getAverageTurnsPerGameType = async (playerId: string, playerType: 'user' | 'friend'): Promise<any[] | null> => {
+    try {
+      // Get completed games for this player
+      const { data: games, error: gamesError } = await supabase
+        .from('games')
+        .select(`
+          id,
+          type,
+          status,
+          game_players!inner(player_id, player_type)
+        `)
+        .eq('status', 'completed')
+        .eq('game_players.player_id', playerId)
+        .eq('game_players.player_type', playerType);
+      
+      if (gamesError) throw gamesError;
+      if (!games || games.length === 0) return [];
+      
+      // Group games by type
+      const gamesByType: Record<string, string[]> = {};
+      games.forEach(game => {
+        if (!gamesByType[game.type]) {
+          gamesByType[game.type] = [];
+        }
+        gamesByType[game.type].push(game.id);
+      });
+      
+      const result = [];
+      
+      // For each game type, get the average number of turns
+      for (const [gameType, gameIds] of Object.entries(gamesByType)) {
+        // Get all turns for these games
+        const { data: turns, error: turnsError } = await supabase
+          .from('turns')
+          .select('game_id, turn_number')
+          .in('game_id', gameIds)
+          .order('turn_number', { ascending: false });
+        
+        if (turnsError) throw turnsError;
+        
+        // Group by game and find max turn number
+        const maxTurnsByGame: Record<string, number> = {};
+        if (turns) {
+          turns.forEach(turn => {
+            if (!maxTurnsByGame[turn.game_id] || turn.turn_number > maxTurnsByGame[turn.game_id]) {
+              maxTurnsByGame[turn.game_id] = turn.turn_number;
+            }
+          });
+        }
+        
+        // Calculate average turns
+        const totalTurns = Object.values(maxTurnsByGame).reduce((sum, turns) => sum + turns, 0);
+        const avgTurns = totalTurns / Object.keys(maxTurnsByGame).length;
+        
+        result.push({
+          gameType,
+          averageTurns: avgTurns,
+          gamesPlayed: gameIds.length
+        });
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error('Error fetching average turns per game type:', error);
+      return null;
+    }
+  };
+
+  // Get checkout success data
+  const getCheckoutSuccessData = async (playerId: string, playerType: 'user' | 'friend'): Promise<any[] | null> => {
+    try {
+      // Get all turns for this player
+      const { data: turns, error } = await supabase
+        .from('turns')
+        .select(`
+          id,
+          remaining,
+          checkout,
+          game_id,
+          games!inner(type)
+        `)
+        .eq('player_id', playerId)
+        .eq('player_type', playerType);
+      
+      if (error) throw error;
+      if (!turns || turns.length === 0) return [];
+      
+      // Group turns by score ranges
+      const ranges = [
+        { min: 1, max: 20, label: '1-20' },
+        { min: 21, max: 40, label: '21-40' },
+        { min: 41, max: 60, label: '41-60' },
+        { min: 61, max: 80, label: '61-80' },
+        { min: 81, max: 100, label: '81-100' },
+        { min: 101, max: 170, label: '101-170' }
+      ];
+      
+      const result = ranges.map(range => {
+        const attempts = turns.filter(turn => {
+          // Only count attempts where player had a chance to checkout
+          return turn.remaining >= range.min && turn.remaining <= range.max;
+        });
+        
+        const successfulCheckouts = attempts.filter(turn => turn.checkout);
+        
+        return {
+          scoreRange: range.label,
+          attempts: attempts.length,
+          success: successfulCheckouts.length,
+          rate: attempts.length > 0 ? (successfulCheckouts.length / attempts.length) * 100 : 0
+        };
+      });
+      
+      return result.filter(r => r.attempts > 0);
+      
+    } catch (error) {
+      console.error('Error fetching checkout success data:', error);
+      return null;
+    }
+  };
+
+  // Get dart score frequency data
+  const getDartScoreFrequency = async (playerId: string, playerType: 'user' | 'friend'): Promise<any[] | null> => {
+    try {
+      // Get all turns for this player
+      const { data: turns, error } = await supabase
+        .from('turns')
+        .select('scores')
+        .eq('player_id', playerId)
+        .eq('player_type', playerType);
+      
+      if (error) throw error;
+      if (!turns || turns.length === 0) return [];
+      
+      // Flatten all dart scores
+      const allDarts = turns.flatMap(turn => turn.scores);
+      
+      // Count frequency of each score
+      const scoreFrequency: Record<number, number> = {};
+      allDarts.forEach(score => {
+        if (scoreFrequency[score]) {
+          scoreFrequency[score]++;
+        } else {
+          scoreFrequency[score] = 1;
+        }
+      });
+      
+      // Convert to array format
+      const result = Object.entries(scoreFrequency).map(([score, count]) => ({
+        score: parseInt(score),
+        count
+      }));
+      
+      return result;
+      
+    } catch (error) {
+      console.error('Error fetching dart score frequency:', error);
+      return null;
+    }
+  };
+
   return {
     loading,
     error,
@@ -1125,5 +1344,9 @@ export const useSupabase = () => {
     addRival,
     // Checkout suggestions
     getCheckoutSuggestion,
+    // New functions
+    getAverageTurnsPerGameType,
+    getCheckoutSuccessData,
+    getDartScoreFrequency,
   };
 }; 
