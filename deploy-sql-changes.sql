@@ -1,5 +1,5 @@
 -- Combined SQL for deployment
--- Generated at: 2025-04-20T00:22:05.262Z
+-- Generated at: 2025-05-29T11:26:53.275Z
 
 -- Source: supabase-migrations/revert-statistics-for-deleted-game.sql
 -- Migration to add function for reverting statistics when a game is deleted

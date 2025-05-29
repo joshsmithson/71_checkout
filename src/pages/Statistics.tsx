@@ -13,7 +13,14 @@ import {
   Select,
   MenuItem,
   Grid,
-  useTheme
+  useTheme,
+  Button,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar
 } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -23,6 +30,7 @@ import ScoreboardIcon from '@mui/icons-material/Scoreboard';
 import SpeedIcon from '@mui/icons-material/Speed';
 import GavelIcon from '@mui/icons-material/Gavel';
 import TargetIcon from '@mui/icons-material/GpsFixed';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import StatisticCard from '@/components/statistics/StatisticCard';
 import DetailedStatsCard from '@/components/statistics/DetailedStatsCard';
 import GameTypeStats from '@/components/statistics/GameTypeStats';
@@ -72,6 +80,7 @@ const Statistics = () => {
     getAverageTurnsPerGameType,
     getCheckoutSuccessData,
     getDartScoreFrequency,
+    reconcileUserStatistics,
     loading, 
     error 
   } = useSupabase();
@@ -90,6 +99,14 @@ const Statistics = () => {
   const [averageTurnsData, setAverageTurnsData] = useState<any[]>([]);
   const [dartScoreFrequency, setDartScoreFrequency] = useState<any[]>([]);
   const [loadingCharts, setLoadingCharts] = useState(false);
+  
+  // Reconciliation state
+  const [reconcileDialogOpen, setReconcileDialogOpen] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState<any>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   
   // Fetch user's statistics on component mount
   useEffect(() => {
@@ -297,6 +314,34 @@ const Statistics = () => {
     successes: item.success
   }));
 
+  const handleReconcile = async () => {
+    if (!user) return;
+    
+    setReconciling(true);
+    try {
+      const result = await reconcileUserStatistics();
+      if (result) {
+        setReconcileResult(result);
+        setSnackbarMessage(result.message);
+        setSnackbarSeverity(result.success ? 'success' : 'error');
+        setSnackbarOpen(true);
+        
+        // Reload statistics after successful reconciliation
+        if (result.success) {
+          loadStatistics(user.id, 'user');
+        }
+      }
+    } catch (err) {
+      console.error('Error reconciling statistics:', err);
+      setReconcileResult({ success: false, message: 'An error occurred while reconciling statistics.' });
+      setSnackbarMessage('An error occurred while reconciling statistics.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: 4, pb: 10 }}>
       <Box sx={{ mb: 4 }}>
@@ -385,6 +430,28 @@ const Statistics = () => {
             />
           </Grid>
           
+          {/* Reconciliation Section - only show for personal stats */}
+          {tabValue === 0 && (
+            <Box sx={{ mb: 4, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Statistics Maintenance
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                If you notice inconsistencies in your game counts between the homepage and statistics page, 
+                use this tool to recalculate your statistics from the actual game data.
+              </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={() => setReconcileDialogOpen(true)}
+                disabled={reconciling}
+                size="small"
+              >
+                {reconciling ? 'Reconciling...' : 'Reconcile Statistics'}
+              </Button>
+            </Box>
+          )}
+          
           {/* Charts Section */}
           {loadingCharts ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
@@ -454,6 +521,96 @@ const Statistics = () => {
               </Typography>
             </Box>
           )}
+          
+          <Snackbar
+            open={snackbarOpen}
+            autoHideDuration={6000}
+            onClose={() => setSnackbarOpen(false)}
+          >
+            <Alert onClose={() => setSnackbarOpen(false)} severity={snackbarSeverity}>
+              {snackbarMessage}
+            </Alert>
+          </Snackbar>
+          
+          {/* Reconciliation Confirmation Dialog */}
+          <Dialog
+            open={reconcileDialogOpen}
+            onClose={() => setReconcileDialogOpen(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>
+              Reconcile Statistics
+            </DialogTitle>
+            <DialogContent>
+              <Typography variant="body1" gutterBottom>
+                This will recalculate all your statistics from scratch based on your actual game data. 
+                This process will:
+              </Typography>
+              <Box component="ul" sx={{ mt: 2, mb: 2 }}>
+                <Typography component="li" variant="body2">
+                  Delete your current statistics records
+                </Typography>
+                <Typography component="li" variant="body2">
+                  Recalculate games played, wins, scores, and other metrics from actual game data
+                </Typography>
+                <Typography component="li" variant="body2">
+                  Fix any inconsistencies between game records and statistics
+                </Typography>
+              </Box>
+              <Alert severity="info" sx={{ mt: 2 }}>
+                This operation is safe and only affects the statistics calculations, not your actual game data.
+              </Alert>
+              {reconcileResult && (
+                <Alert 
+                  severity={reconcileResult.success ? 'success' : 'error'} 
+                  sx={{ mt: 2 }}
+                >
+                  {reconcileResult.success ? (
+                    <>
+                      <Typography variant="body2">
+                        Statistics reconciled successfully!
+                      </Typography>
+                      <Typography variant="body2">
+                        Games before: {reconcileResult.games_before}
+                      </Typography>
+                      <Typography variant="body2">
+                        Games after: {reconcileResult.games_after}
+                      </Typography>
+                      {reconcileResult.difference !== 0 && (
+                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                          Difference: {reconcileResult.difference > 0 ? '+' : ''}{reconcileResult.difference}
+                        </Typography>
+                      )}
+                    </>
+                  ) : (
+                    <Typography variant="body2">
+                      {reconcileResult.message}
+                    </Typography>
+                  )}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button 
+                onClick={() => setReconcileDialogOpen(false)}
+                disabled={reconciling}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  handleReconcile();
+                  setReconcileDialogOpen(false);
+                }}
+                variant="contained"
+                disabled={reconciling}
+                startIcon={reconciling ? <CircularProgress size={16} /> : <RefreshIcon />}
+              >
+                {reconciling ? 'Reconciling...' : 'Reconcile'}
+              </Button>
+            </DialogActions>
+          </Dialog>
         </>
       )}
     </Container>

@@ -1310,6 +1310,19 @@ export const useSupabase = () => {
     }
   };
 
+  // Reconcile user statistics
+  const reconcileUserStatistics = async (): Promise<any | null> => {
+    if (!user) return null;
+    
+    return fetchData(async () => {
+      const result = await supabase.rpc('reconcile_user_statistics', {
+        user_id: user.id
+      });
+      
+      return result;
+    });
+  };
+
   return {
     loading,
     error,
@@ -1334,6 +1347,7 @@ export const useSupabase = () => {
     getPlayerStatistics,
     getPlayerStatisticsTrend,
     getScoreDistribution,
+    reconcileUserStatistics,
     // Leaderboard
     getLeaderboard,
     // Rivals
