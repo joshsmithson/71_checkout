@@ -334,6 +334,27 @@ export const useSupabase = () => {
     });
   };
 
+  const deleteFriend = async (friendId: string): Promise<any | null> => {
+    if (!user) {
+      console.log('No user found for delete friend operation');
+      return null;
+    }
+    
+    console.log('Deleting friend with ID:', friendId, 'for user:', user.id);
+    
+    return fetchData(async () => {
+      console.log('Calling supabase RPC delete_friend_and_data...');
+      const result = await supabase.rpc('delete_friend_and_data', {
+        friend_id: friendId,
+        creator_user_id: user.id
+      });
+      
+      console.log('Supabase RPC result:', result);
+      
+      return result;
+    });
+  };
+
   // Statistics Operations
   const getPlayerStatistics = async (playerId: string, playerType: 'user' | 'friend'): Promise<StatisticsRow[] | null> => {
     return fetchData(async () => {
@@ -1343,6 +1364,7 @@ export const useSupabase = () => {
     // Friends operations
     getFriends,
     addFriend,
+    deleteFriend,
     // Statistics operations
     getPlayerStatistics,
     getPlayerStatisticsTrend,

@@ -28,7 +28,10 @@ import {
   DialogActions,
   Alert,
   Snackbar,
-  InputAdornment
+  InputAdornment,
+  Menu,
+  MenuItem,
+  ListItemIcon
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +40,8 @@ import ShuffleIcon from '@mui/icons-material/Shuffle';
 import AddIcon from '@mui/icons-material/Add';
 import PersonIcon from '@mui/icons-material/Person';
 import SportsIcon from '@mui/icons-material/Sports';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const MotionCard = motion.create(Card);
 
@@ -48,6 +53,7 @@ const GameSetup = () => {
     createGame, 
     addPlayersToGame, 
     addFriend,
+    deleteFriend,
     loading 
   } = useSupabase();
 
@@ -60,8 +66,16 @@ const GameSetup = () => {
   const [shufflePlayers, setShufflePlayers] = useState(true);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [error, setError] = useState<string | null>(null);
   const [creatingGame, setCreatingGame] = useState(false);
+  
+  // Friend menu state
+  const [friendMenuAnchor, setFriendMenuAnchor] = useState<null | HTMLElement>(null);
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+  const [deletingFriend, setDeletingFriend] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [friendToDelete, setFriendToDelete] = useState<string | null>(null);
 
   // Load friends on component mount
   useEffect(() => {
@@ -98,6 +112,7 @@ const GameSetup = () => {
   const handleAddFriend = async () => {
     if (!newFriendName.trim()) {
       setSnackbarMessage('Friend name cannot be empty');
+      setSnackbarSeverity('error');
       setSnackbarOpen(true);
       return;
     }
@@ -108,13 +123,79 @@ const GameSetup = () => {
         setFriends(prev => [...prev, newFriend]);
         setNewFriendName('');
         setSnackbarMessage('Friend added successfully');
+        setSnackbarSeverity('success');
         setSnackbarOpen(true);
         setAddingFriend(false);
       }
     } catch (error) {
       setSnackbarMessage('Failed to add friend');
+      setSnackbarSeverity('error');
       setSnackbarOpen(true);
     }
+  };
+
+  // Handle friend menu
+  const handleFriendMenuOpen = (event: React.MouseEvent<HTMLElement>, friendId: string) => {
+    console.log('Opening friend menu for friend:', friendId);
+    event.stopPropagation();
+    setFriendMenuAnchor(event.currentTarget);
+    setSelectedFriendId(friendId);
+  };
+
+  const handleFriendMenuClose = () => {
+    console.log('Closing friend menu');
+    setFriendMenuAnchor(null);
+    setSelectedFriendId(null);
+  };
+
+  // Handle friend deletion
+  const handleDeleteFriendClick = () => {
+    console.log('Delete friend clicked for:', selectedFriendId);
+    setFriendToDelete(selectedFriendId); // Store the friend to delete separately
+    setDeleteConfirmOpen(true);
+    handleFriendMenuClose();
+  };
+
+  const handleDeleteFriendConfirm = async () => {
+    if (!friendToDelete) {
+      console.log('No friend selected for deletion');
+      return;
+    }
+
+    console.log('Confirming deletion of friend:', friendToDelete);
+    setDeletingFriend(true);
+    try {
+      console.log('Calling deleteFriend function...');
+      const result = await deleteFriend(friendToDelete);
+      console.log('Delete result:', result);
+      
+      if (result && result.success) {
+        // Remove friend from list
+        setFriends(prev => prev.filter(friend => friend.id !== friendToDelete));
+        // Remove from selected players if they were selected
+        setSelectedPlayers(prev => prev.filter(id => id !== friendToDelete));
+        setSnackbarMessage(`${result.friend_name} and all associated data deleted successfully`);
+        setSnackbarSeverity('success');
+      } else {
+        console.error('Delete failed:', result);
+        setSnackbarMessage(result?.message || 'Failed to delete friend');
+        setSnackbarSeverity('error');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      setSnackbarMessage('Failed to delete friend');
+      setSnackbarSeverity('error');
+    } finally {
+      setDeletingFriend(false);
+      setDeleteConfirmOpen(false);
+      setFriendToDelete(null); // Clear the friend to delete
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleDeleteFriendCancel = () => {
+    setDeleteConfirmOpen(false);
+    setFriendToDelete(null); // Clear the friend to delete
   };
 
   // Create a new game
@@ -270,10 +351,19 @@ const GameSetup = () => {
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText primary={friend.name} />
-                    <Checkbox 
-                      checked={selectedPlayers.includes(friend.id)} 
-                      onChange={() => handlePlayerToggle(friend.id)} 
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Checkbox 
+                        checked={selectedPlayers.includes(friend.id)} 
+                        onChange={() => handlePlayerToggle(friend.id)} 
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={(event) => handleFriendMenuOpen(event, friend.id)}
+                        sx={{ ml: 1 }}
+                      >
+                        <MoreVertIcon />
+                      </IconButton>
+                    </Box>
                   </ListItem>
                 ))
               ) : (
@@ -369,8 +459,90 @@ const GameSetup = () => {
         open={snackbarOpen}
         autoHideDuration={4000}
         onClose={() => setSnackbarOpen(false)}
-        message={snackbarMessage}
-      />
+      >
+        <Alert 
+          onClose={() => setSnackbarOpen(false)} 
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+
+      {/* Friend Options Menu */}
+      <Menu
+        anchorEl={friendMenuAnchor}
+        open={Boolean(friendMenuAnchor)}
+        onClose={handleFriendMenuClose}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <MenuItem onClick={handleDeleteFriendClick}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          Delete Friend
+        </MenuItem>
+      </Menu>
+
+      {/* Delete Friend Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={handleDeleteFriendCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Delete Friend</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            This action cannot be undone!
+          </Alert>
+          <Typography variant="body1">
+            Are you sure you want to delete{' '}
+            <strong>
+              {friends.find(f => f.id === friendToDelete)?.name}
+            </strong>
+            ?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            This will permanently delete:
+          </Typography>
+          <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+            <Typography component="li" variant="body2" color="text.secondary">
+              The friend's profile
+            </Typography>
+            <Typography component="li" variant="body2" color="text.secondary">
+              All their game statistics
+            </Typography>
+            <Typography component="li" variant="body2" color="text.secondary">
+              All their turn records
+            </Typography>
+            <Typography component="li" variant="body2" color="text.secondary">
+              All rivalry data involving this friend
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteFriendCancel}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteFriendConfirm} 
+            color="error"
+            variant="contained"
+            disabled={deletingFriend}
+            startIcon={deletingFriend ? <CircularProgress size={16} /> : <DeleteIcon />}
+          >
+            {deletingFriend ? 'Deleting...' : 'Delete Friend'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
