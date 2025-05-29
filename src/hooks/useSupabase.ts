@@ -336,20 +336,14 @@ export const useSupabase = () => {
 
   const deleteFriend = async (friendId: string): Promise<any | null> => {
     if (!user) {
-      console.log('No user found for delete friend operation');
       return null;
     }
     
-    console.log('Deleting friend with ID:', friendId, 'for user:', user.id);
-    
     return fetchData(async () => {
-      console.log('Calling supabase RPC delete_friend_and_data...');
       const result = await supabase.rpc('delete_friend_and_data', {
         friend_id: friendId,
         creator_user_id: user.id
       });
-      
-      console.log('Supabase RPC result:', result);
       
       return result;
     });
@@ -452,6 +446,126 @@ export const useSupabase = () => {
       
     } catch (error) {
       console.error('Error fetching statistics trend data:', error);
+      return null;
+    }
+  };
+
+  // Get weekly statistics breakdown
+  const getPlayerStatisticsByWeek = async (playerId: string, playerType: 'user' | 'friend'): Promise<any[] | null> => {
+    try {
+      // Get all turns for this player
+      const { data: turns, error: turnsError } = await supabase
+        .from('turns')
+        .select(`
+          id,
+          game_id,
+          scores,
+          remaining,
+          checkout,
+          created_at,
+          games!inner(type, status)
+        `)
+        .eq('player_id', playerId)
+        .eq('player_type', playerType)
+        .eq('games.status', 'completed')
+        .order('created_at', { ascending: true });
+      
+      if (turnsError) throw turnsError;
+      if (!turns || turns.length === 0) return [];
+      
+      // Helper function to get week start date
+      const getWeekStartDate = (date: Date) => {
+        const day = date.getDay();
+        const diff = date.getDate() - day; // Adjust to start from Sunday
+        const weekStart = new Date(date.setDate(diff));
+        // Reset time to start of day
+        weekStart.setHours(0, 0, 0, 0);
+        return weekStart;
+      };
+      
+      // Helper function to format date for display
+      const formatWeekDate = (date: Date) => {
+        return date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+        });
+      };
+      
+      // Group turns by week for trend data
+      const weeklyData: { [key: string]: any } = {};
+      
+      for (const turn of turns) {
+        const date = new Date(turn.created_at);
+        const weekStart = getWeekStartDate(new Date(date)); // Need new Date to avoid mutation
+        const weekKey = weekStart.toISOString().split('T')[0]; // YYYY-MM-DD format for sorting
+        const weekLabel = formatWeekDate(weekStart);
+        
+        if (!weeklyData[weekKey]) {
+          weeklyData[weekKey] = {
+            date: weekLabel,
+            sortKey: weekKey,
+            totalScore: 0,
+            totalDarts: 0,
+            turnCount: 0,
+            highestTurn: 0,
+            games: new Set(),
+            wins: 0,
+            count180: 0
+          };
+        }
+        
+        // Calculate score for this turn
+        const turnScore = turn.scores.reduce((acc: number, score: number) => acc + score, 0);
+        const dartCount = turn.scores.length;
+        
+        weeklyData[weekKey].totalScore += turnScore;
+        weeklyData[weekKey].totalDarts += dartCount;
+        weeklyData[weekKey].turnCount++;
+        weeklyData[weekKey].highestTurn = Math.max(weeklyData[weekKey].highestTurn, turnScore);
+        weeklyData[weekKey].games.add(turn.game_id);
+        
+        // Count 180s
+        if (turnScore === 180) {
+          weeklyData[weekKey].count180++;
+        }
+      }
+      
+      // Get wins for each week
+      for (const weekKey in weeklyData) {
+        const gameIds = Array.from(weeklyData[weekKey].games);
+        
+        const { data: winners, error: winnersError } = await supabase
+          .from('game_players')
+          .select('game_id')
+          .eq('player_id', playerId)
+          .eq('player_type', playerType)
+          .eq('winner', true)
+          .in('game_id', gameIds);
+        
+        if (winnersError) throw winnersError;
+        
+        weeklyData[weekKey].wins = winners?.length || 0;
+      }
+      
+      // Format the data for charts and sort by date
+      return Object.entries(weeklyData)
+        .sort(([a], [b]) => a.localeCompare(b)) // Sort by the ISO date key
+        .map(([weekKey, data]) => {
+          const gamesPlayed = data.games.size;
+          return {
+            date: data.date, // Now shows "Jan 15" instead of "2025-W03"
+            averagePerDart: data.totalDarts > 0 ? data.totalScore / data.totalDarts : 0,
+            winPercentage: gamesPlayed > 0 ? (data.wins / gamesPlayed) * 100 : 0,
+            highestTurn: data.highestTurn,
+            gamesPlayed,
+            gamesWon: data.wins,
+            count180: data.count180
+          };
+        });
+      
+    } catch (error) {
+      console.error('Error fetching weekly statistics data:', error);
       return null;
     }
   };
@@ -1368,6 +1482,7 @@ export const useSupabase = () => {
     // Statistics operations
     getPlayerStatistics,
     getPlayerStatisticsTrend,
+    getPlayerStatisticsByWeek,
     getScoreDistribution,
     reconcileUserStatistics,
     // Leaderboard

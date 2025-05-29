@@ -20,7 +20,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar
+  Snackbar,
+  Paper,
+  ToggleButtonGroup,
+  ToggleButton
 } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -31,6 +34,10 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import GavelIcon from '@mui/icons-material/Gavel';
 import TargetIcon from '@mui/icons-material/GpsFixed';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
+import HistoryIcon from '@mui/icons-material/History';
+import OverviewIcon from '@mui/icons-material/Dashboard';
 import StatisticCard from '@/components/statistics/StatisticCard';
 import DetailedStatsCard from '@/components/statistics/DetailedStatsCard';
 import GameTypeStats from '@/components/statistics/GameTypeStats';
@@ -41,6 +48,7 @@ import ScoreDistributionChart from '@/components/statistics/ScoreDistributionCha
 import { CheckoutSuccessChart } from '@/components/statistics/CheckoutSuccessChart';
 import { AverageTurnsChart } from '@/components/statistics/AverageTurnsChart';
 import { ScoreHeatmap } from '@/components/statistics/ScoreHeatmap';
+import WeeklyWinsChart from '@/components/statistics/WeeklyWinsChart';
 
 type StatisticData = {
   player_id: string;
@@ -66,6 +74,8 @@ type GameHistoryItem = {
   }[];
 };
 
+type TimeRange = 'week' | 'month';
+
 const Statistics = () => {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -73,6 +83,7 @@ const Statistics = () => {
   const { 
     getPlayerStatistics, 
     getPlayerStatisticsTrend, 
+    getPlayerStatisticsByWeek,
     getScoreDistribution, 
     getFriends, 
     getGames, 
@@ -86,14 +97,17 @@ const Statistics = () => {
   } = useSupabase();
   
   const [tabValue, setTabValue] = useState(0);
+  const [playerTabValue, setPlayerTabValue] = useState(0); // 0 = Personal, 1 = Player comparison
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [selectedPlayerType, setSelectedPlayerType] = useState<'user' | 'friend'>('user');
   const [gameTypeFilter, setGameTypeFilter] = useState<string>('all');
+  const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [statistics, setStatistics] = useState<StatisticData[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [recentGames, setRecentGames] = useState<GameHistoryItem[]>([]);
   const [loadingGames, setLoadingGames] = useState(false);
   const [trendData, setTrendData] = useState<any[]>([]);
+  const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [scoreDistribution, setScoreDistribution] = useState<any[]>([]);
   const [checkoutSuccessData, setCheckoutSuccessData] = useState<any[]>([]);
   const [averageTurnsData, setAverageTurnsData] = useState<any[]>([]);
@@ -127,12 +141,14 @@ const Statistics = () => {
       setLoadingCharts(true);
       const [
         trendData, 
+        weeklyData,
         distributionData, 
         checkoutData, 
         turnsData,
         scoreFrequency
       ] = await Promise.all([
         getPlayerStatisticsTrend(playerId, playerType),
+        getPlayerStatisticsByWeek(playerId, playerType),
         getScoreDistribution(playerId, playerType, gameTypeFilter),
         getCheckoutSuccessData(playerId, playerType),
         getAverageTurnsPerGameType(playerId, playerType),
@@ -140,6 +156,7 @@ const Statistics = () => {
       ]);
       
       if (trendData) setTrendData(trendData);
+      if (weeklyData) setWeeklyData(weeklyData);
       if (distributionData) setScoreDistribution(distributionData);
       if (checkoutData) setCheckoutSuccessData(checkoutData);
       if (turnsData) setAverageTurnsData(turnsData);
@@ -207,40 +224,35 @@ const Statistics = () => {
   
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    if (newValue === 0) {
-      // Personal stats
-      setSelectedPlayerId(user?.id || '');
-      setSelectedPlayerType('user');
-      if (user) {
-        loadStatistics(user.id, 'user');
-      }
-    }
   };
-  
+
+  const handlePlayerTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setPlayerTabValue(newValue);
+  };
+
   const handlePlayerChange = (event: any) => {
-    const value = event.target.value;
-    if (value) {
-      const [id, type] = value.split('|');
-      setSelectedPlayerId(id);
-      setSelectedPlayerType(type as 'user' | 'friend');
-      loadStatistics(id, type as 'user' | 'friend');
-    }
+    const [playerId, playerType] = event.target.value.split('|');
+    setSelectedPlayerId(playerId);
+    setSelectedPlayerType(playerType as 'user' | 'friend');
+    loadStatistics(playerId, playerType as 'user' | 'friend');
   };
   
   const handleGameTypeChange = async (event: any) => {
     const newGameType = event.target.value;
     setGameTypeFilter(newGameType);
     
-    // Reload score distribution when game type changes
-    if (selectedPlayerId) {
-      setLoadingCharts(true);
-      const distributionData = await getScoreDistribution(
-        selectedPlayerId, 
-        selectedPlayerType, 
-        newGameType
-      );
-      if (distributionData) setScoreDistribution(distributionData);
-      setLoadingCharts(false);
+    // Reload score distribution with new filter
+    setLoadingCharts(true);
+    const distributionData = await getScoreDistribution(selectedPlayerId, selectedPlayerType, newGameType);
+    if (distributionData) {
+      setScoreDistribution(distributionData);
+    }
+    setLoadingCharts(false);
+  };
+
+  const handleTimeRangeChange = (_event: React.MouseEvent<HTMLElement>, newTimeRange: TimeRange | null) => {
+    if (newTimeRange !== null) {
+      setTimeRange(newTimeRange);
     }
   };
   
@@ -342,6 +354,167 @@ const Statistics = () => {
     }
   };
 
+  // Tab content components
+  const OverviewTab = () => (
+    <Box>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <StatisticCard 
+          title="Games Played" 
+          value={aggregatedStats.games_played} 
+          icon={<SportsCricketIcon fontSize="large" />} 
+        />
+        <StatisticCard 
+          title="Win Rate" 
+          value={`${winPercentage.toFixed(1)}%`} 
+          icon={<EmojiEventsIcon fontSize="large" />} 
+        />
+        <StatisticCard 
+          title="Avg Per Dart" 
+          value={aggregatedStats.average_per_dart.toFixed(1)} 
+          icon={<SpeedIcon fontSize="large" />} 
+        />
+        <StatisticCard 
+          title="180s" 
+          value={aggregatedStats.count_180} 
+          icon={<ScoreboardIcon fontSize="large" />} 
+        />
+      </Grid>
+      
+      <DetailedStatsCard 
+        title="Detailed Statistics" 
+        stats={detailedStats}
+      />
+      
+      {gameTypeFilter === 'all' && (
+        <GameTypeStats gameTypeStats={gameTypeBreakdown} />
+      )}
+
+      {/* Reconciliation Section - only show for personal stats */}
+      {playerTabValue === 0 && (
+        <Box sx={{ mt: 4, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Statistics Maintenance
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            If you notice inconsistencies in your game counts between the homepage and statistics page, 
+            use this tool to recalculate your statistics from the actual game data.
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={() => setReconcileDialogOpen(true)}
+            disabled={reconciling}
+            size="small"
+          >
+            {reconciling ? 'Reconciling...' : 'Reconcile Statistics'}
+          </Button>
+        </Box>
+      )}
+    </Box>
+  );
+
+  const PerformanceOverTimeTab = () => (
+    <Box>
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Typography variant="h6">Time Range</Typography>
+          <ToggleButtonGroup
+            value={timeRange}
+            exclusive
+            onChange={handleTimeRangeChange}
+            size="small"
+          >
+            <ToggleButton value="week">Weekly</ToggleButton>
+            <ToggleButton value="month">Monthly</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+      </Paper>
+
+      {loadingCharts ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          {timeRange === 'week' && weeklyData.length > 0 && (
+            <WeeklyWinsChart data={weeklyData} />
+          )}
+          
+          {timeRange === 'month' && trendData.length > 1 && (
+            <PerformanceTrendChart data={trendData} />
+          )}
+          
+          {timeRange === 'week' && weeklyData.length > 1 && (
+            <PerformanceTrendChart 
+              data={weeklyData} 
+              title="Weekly Performance Trends"
+            />
+          )}
+          
+          {(timeRange === 'week' ? weeklyData.length === 0 : trendData.length <= 1) && (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Not Enough Data Yet
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Play more games to see your performance trends over time.
+                You need at least {timeRange === 'week' ? 'a week' : 'two months'} of game data.
+              </Typography>
+            </Paper>
+          )}
+        </>
+      )}
+    </Box>
+  );
+
+  const GameAnalysisTab = () => (
+    <Box>
+      {loadingCharts ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          {gameTypeComparisonData.length > 1 && (
+            <Box sx={{ mb: 4 }}>
+              <GameTypeComparisonChart data={gameTypeComparisonData} />
+            </Box>
+          )}
+          
+          {averageTurnsData && averageTurnsData.length > 0 && (
+            <Box sx={{ mb: 4 }}>
+              <AverageTurnsChart data={averageTurnsData} />
+            </Box>
+          )}
+          
+          {formattedCheckoutData && formattedCheckoutData.length > 0 && (
+            <Box sx={{ mb: 4 }}>
+              <CheckoutSuccessChart data={formattedCheckoutData} />
+            </Box>
+          )}
+          
+          {dartScoreFrequency && dartScoreFrequency.length > 0 && (
+            <Box sx={{ mb: 4 }}>
+              <ScoreHeatmap data={dartScoreFrequency} />
+            </Box>
+          )}
+          
+          {scoreDistribution.length > 0 && (
+            <Box sx={{ mb: 4 }}>
+              <ScoreDistributionChart data={scoreDistribution} />
+            </Box>
+          )}
+        </>
+      )}
+    </Box>
+  );
+
+  const RecentActivityTab = () => (
+    <Box>
+      <RecentGames games={recentGames} onViewGame={handleViewGame} />
+    </Box>
+  );
+
   return (
     <Container maxWidth="md" sx={{ py: 4, pb: 10 }}>
       <Box sx={{ mb: 4 }}>
@@ -349,16 +522,17 @@ const Statistics = () => {
           Statistics
         </Typography>
         
+        {/* Player Selection Tabs */}
         <Tabs 
-          value={tabValue} 
-          onChange={handleTabChange} 
+          value={playerTabValue} 
+          onChange={handlePlayerTabChange} 
           indicatorColor="primary"
           textColor="primary"
           variant="fullWidth"
           sx={{ mt: 2, mb: 2 }}
         >
           <Tab label="Personal" />
-          <Tab label="Player Stats" />
+          <Tab label="Player Comparison" />
         </Tabs>
       </Box>
       
@@ -373,7 +547,7 @@ const Statistics = () => {
       ) : (
         <>
           <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
-            {tabValue === 1 && (
+            {playerTabValue === 1 && (
               <FormControl fullWidth sx={{ maxWidth: { sm: 300 } }}>
                 <InputLabel id="player-select-label">Player</InputLabel>
                 <Select
@@ -406,110 +580,50 @@ const Statistics = () => {
               </Select>
             </FormControl>
           </Box>
-          
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            <StatisticCard 
-              title="Games Played" 
-              value={aggregatedStats.games_played} 
-              icon={<SportsCricketIcon fontSize="large" />} 
-            />
-            <StatisticCard 
-              title="Win Rate" 
-              value={`${winPercentage.toFixed(1)}%`} 
-              icon={<EmojiEventsIcon fontSize="large" />} 
-            />
-            <StatisticCard 
-              title="Avg Per Dart" 
-              value={aggregatedStats.average_per_dart.toFixed(1)} 
-              icon={<SpeedIcon fontSize="large" />} 
-            />
-            <StatisticCard 
-              title="180s" 
-              value={aggregatedStats.count_180} 
-              icon={<ScoreboardIcon fontSize="large" />} 
-            />
-          </Grid>
-          
-          {/* Reconciliation Section - only show for personal stats */}
-          {tabValue === 0 && (
-            <Box sx={{ mb: 4, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Statistics Maintenance
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                If you notice inconsistencies in your game counts between the homepage and statistics page, 
-                use this tool to recalculate your statistics from the actual game data.
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={() => setReconcileDialogOpen(true)}
-                disabled={reconciling}
-                size="small"
-              >
-                {reconciling ? 'Reconciling...' : 'Reconcile Statistics'}
-              </Button>
-            </Box>
-          )}
-          
-          {/* Charts Section */}
-          {loadingCharts ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <>
-              {trendData.length > 1 && (
-                <Box sx={{ mb: 4 }}>
-                  <PerformanceTrendChart data={trendData} />
-                </Box>
-              )}
-              
-              {gameTypeComparisonData.length > 1 && (
-                <Box sx={{ mb: 4 }}>
-                  <GameTypeComparisonChart data={gameTypeComparisonData} />
-                </Box>
-              )}
-              
-              {/* New visualizations */}
-              {averageTurnsData && averageTurnsData.length > 0 && (
-                <Box sx={{ mb: 4 }}>
-                  <AverageTurnsChart data={averageTurnsData} />
-                </Box>
-              )}
-              
-              {formattedCheckoutData && formattedCheckoutData.length > 0 && (
-                <Box sx={{ mb: 4 }}>
-                  <CheckoutSuccessChart data={formattedCheckoutData} />
-                </Box>
-              )}
-              
-              {dartScoreFrequency && dartScoreFrequency.length > 0 && (
-                <Box sx={{ mb: 4 }}>
-                  <ScoreHeatmap data={dartScoreFrequency} />
-                </Box>
-              )}
-              
-              {scoreDistribution.length > 0 && (
-                <Box sx={{ mb: 4 }}>
-                  <ScoreDistributionChart data={scoreDistribution} />
-                </Box>
-              )}
-            </>
-          )}
-          
-          <DetailedStatsCard 
-            title="Detailed Statistics" 
-            stats={detailedStats}
-          />
-          
-          {gameTypeFilter === 'all' && (
-            <GameTypeStats gameTypeStats={gameTypeBreakdown} />
-          )}
-          
-          {tabValue === 0 && (
-            <RecentGames games={recentGames} onViewGame={handleViewGame} />
-          )}
+
+          {/* Statistics Content Tabs */}
+          <Paper sx={{ mb: 3 }}>
+            <Tabs 
+              value={tabValue} 
+              onChange={handleTabChange} 
+              indicatorColor="primary"
+              textColor="primary"
+              variant="fullWidth"
+              sx={{ borderBottom: 1, borderColor: 'divider' }}
+            >
+              <Tab 
+                label="Overview" 
+                icon={<OverviewIcon />} 
+                iconPosition="start"
+                sx={{ minHeight: 64 }}
+              />
+              <Tab 
+                label="Performance" 
+                icon={<TrendingUpIcon />} 
+                iconPosition="start"
+                sx={{ minHeight: 64 }}
+              />
+              <Tab 
+                label="Analysis" 
+                icon={<AnalyticsIcon />} 
+                iconPosition="start"
+                sx={{ minHeight: 64 }}
+              />
+              <Tab 
+                label="Recent" 
+                icon={<HistoryIcon />} 
+                iconPosition="start"
+                sx={{ minHeight: 64 }}
+              />
+            </Tabs>
+          </Paper>
+
+          <Box sx={{ mt: 3 }}>
+            {tabValue === 0 && <OverviewTab />}
+            {tabValue === 1 && <PerformanceOverTimeTab />}
+            {tabValue === 2 && <GameAnalysisTab />}
+            {tabValue === 3 && <RecentActivityTab />}
+          </Box>
           
           {filteredStats.length === 0 && (
             <Box sx={{ textAlign: 'center', py: 4 }}>

@@ -35,4 +35,7 @@ dist-ssr
 # Build files
 /build
 /out
-/dist 
+/dist
+
+# Auto-generated database deployment file
+deploy-database.sql 

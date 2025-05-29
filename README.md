@@ -45,7 +45,14 @@ VITE_SUPABASE_URL=your_supabase_url_here
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 ```
 
-4. Initialize your Supabase project and run the SQL migrations from `schema.sql` and `functions.sql`.
+4. **Deploy the database structure:**
+
+```bash
+# Generate deployment file
+node deploy-sql.js
+
+# Then copy the contents of deploy-database.sql to Supabase SQL Editor and run it
+```
 
 5. Start the development server:
 
@@ -55,8 +62,13 @@ npm run dev
 
 ## Database Structure
 
-The application uses the following tables in Supabase:
+The application uses the following organized structure:
 
+- **`database/schema/`** - Core database tables and relationships
+- **`database/functions/`** - PostgreSQL/Supabase functions
+- **`database/migrations/`** - Historical migration files
+
+### Core Tables:
 - **users**: User authentication and profiles (managed by Supabase Auth)
 - **friends**: Non-app users that participate in games
 - **games**: Game instances

@@ -136,21 +136,18 @@ const GameSetup = () => {
 
   // Handle friend menu
   const handleFriendMenuOpen = (event: React.MouseEvent<HTMLElement>, friendId: string) => {
-    console.log('Opening friend menu for friend:', friendId);
     event.stopPropagation();
     setFriendMenuAnchor(event.currentTarget);
     setSelectedFriendId(friendId);
   };
 
   const handleFriendMenuClose = () => {
-    console.log('Closing friend menu');
     setFriendMenuAnchor(null);
     setSelectedFriendId(null);
   };
 
   // Handle friend deletion
   const handleDeleteFriendClick = () => {
-    console.log('Delete friend clicked for:', selectedFriendId);
     setFriendToDelete(selectedFriendId); // Store the friend to delete separately
     setDeleteConfirmOpen(true);
     handleFriendMenuClose();
@@ -158,16 +155,12 @@ const GameSetup = () => {
 
   const handleDeleteFriendConfirm = async () => {
     if (!friendToDelete) {
-      console.log('No friend selected for deletion');
       return;
     }
 
-    console.log('Confirming deletion of friend:', friendToDelete);
     setDeletingFriend(true);
     try {
-      console.log('Calling deleteFriend function...');
       const result = await deleteFriend(friendToDelete);
-      console.log('Delete result:', result);
       
       if (result && result.success) {
         // Remove friend from list
@@ -177,12 +170,10 @@ const GameSetup = () => {
         setSnackbarMessage(`${result.friend_name} and all associated data deleted successfully`);
         setSnackbarSeverity('success');
       } else {
-        console.error('Delete failed:', result);
         setSnackbarMessage(result?.message || 'Failed to delete friend');
         setSnackbarSeverity('error');
       }
     } catch (error) {
-      console.error('Delete error:', error);
       setSnackbarMessage('Failed to delete friend');
       setSnackbarSeverity('error');
     } finally {

@@ -7,33 +7,61 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Files to include
+// Read SQL files from the organized database directory
+const readSQLFile = (category, filename) => {
+  const filePath = join(__dirname, 'database', category, filename);
+  try {
+    return readFileSync(filePath, 'utf8');
+  } catch (error) {
+    console.warn(`Warning: Could not read ${filePath}`);
+    return '';
+  }
+};
+
+// Main SQL files to deploy
 const sqlFiles = [
-  'supabase-migrations/revert-statistics-for-deleted-game.sql',
-  'supabase-migrations/recalculate-statistics-on-delete.sql',
-  'supabase-migrations/recalculate-all-statistics.sql'
+  { category: 'schema', file: 'supabase-schema.sql', description: 'Database Schema' },
+  { category: 'functions', file: 'supabase-functions.sql', description: 'Main Functions' },
+  { category: 'functions', file: 'reconcile-function.sql', description: 'Statistics Reconciliation Function' },
+  { category: 'functions', file: 'delete-friend-function.sql', description: 'Friend Deletion Function' }
 ];
 
 // Output file
-const outputFile = 'deploy-sql-changes.sql';
+const outputFile = 'deploy-database.sql';
 
-// Combine files
-let combinedSql = '-- Combined SQL for deployment\n';
-combinedSql += `-- Generated at: ${new Date().toISOString()}\n\n`;
+// Combine all SQL content
+let combinedSQL = `-- Dart Counter Database Deployment
+-- Generated on: ${new Date().toISOString()}
+-- 
+-- This file contains the complete database structure and functions
+-- Deploy this to Supabase via the SQL Editor
 
-sqlFiles.forEach(file => {
-  const filePath = join(__dirname, file);
-  try {
-    const sqlContent = readFileSync(filePath, 'utf8');
-    combinedSql += `-- Source: ${file}\n`;
-    combinedSql += sqlContent;
-    combinedSql += '\n\n';
-    console.log(`Added content from ${file}`);
-  } catch (err) {
-    console.error(`Error reading file ${file}:`, err);
+`;
+
+sqlFiles.forEach(({ category, file, description }) => {
+  const content = readSQLFile(category, file);
+  if (content.trim()) {
+    combinedSQL += `-- ===============================================
+-- ${description}
+-- File: database/${category}/${file}
+-- ===============================================
+
+${content}
+
+`;
   }
 });
 
 // Write to output file
-writeFileSync(join(__dirname, outputFile), combinedSql);
-console.log(`Combined SQL written to ${outputFile}`); 
+writeFileSync(join(__dirname, outputFile), combinedSQL);
+console.log(`✅ Database deployment file created: ${outputFile}`);
+console.log('📁 Total files combined:', sqlFiles.length);
+console.log('📄 Output size:', Math.round(combinedSQL.length / 1024), 'KB');
+console.log('\n🚀 To deploy:');
+console.log('1. Copy the contents of deploy-database.sql');
+console.log('2. Go to Supabase Dashboard > SQL Editor');
+console.log('3. Paste and run the SQL');
+console.log('\n📂 Individual files are organized in:');
+console.log('- database/schema/ - Database tables and structure');
+console.log('- database/functions/ - PostgreSQL functions');
+console.log('- database/migrations/ - Historical migration files'); 
