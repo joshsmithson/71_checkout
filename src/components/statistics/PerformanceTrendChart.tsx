@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 import { Card, CardContent, Typography, Divider, Box, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
@@ -41,8 +41,32 @@ const PerformanceTrendChart: React.FC<PerformanceTrendChartProps> = ({
   const min = Math.floor(Math.max(0, Math.min(...values) * 0.9)); // 10% below min, but not below 0
   const max = Math.ceil(Math.max(...values) * 1.1); // 10% above max
 
+  // Custom label formatter for line data
+  const renderLineLabel = (props: any) => {
+    const { x, y, value } = props;
+    if (value === undefined || value === null) return null;
+    
+    const displayValue = metric === 'winPercentage' 
+      ? `${value.toFixed(0)}%` 
+      : value.toFixed(1);
+    
+    return (
+      <text 
+        x={x} 
+        y={y - 10} 
+        fill={theme.palette.primary.main}
+        textAnchor="middle" 
+        dominantBaseline="middle"
+        fontSize="10"
+        fontWeight="500"
+      >
+        {displayValue}
+      </text>
+    );
+  };
+
   return (
-    <Card sx={{ mb: 4, borderRadius: 2, height: 420 }}>
+    <Card sx={{ mb: 4, borderRadius: 2, height: 450 }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" component="h2">
@@ -69,12 +93,12 @@ const PerformanceTrendChart: React.FC<PerformanceTrendChartProps> = ({
         
         <Divider sx={{ mb: 2 }} />
         
-        <Box sx={{ height: 300 }}>
+        <Box sx={{ height: 330 }}>
           {data.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={data}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                 <XAxis 
@@ -108,7 +132,9 @@ const PerformanceTrendChart: React.FC<PerformanceTrendChartProps> = ({
                   dot={{ fill: theme.palette.primary.main, r: 4 }}
                   activeDot={{ r: 6 }}
                   animationDuration={1000}
-                />
+                >
+                  <LabelList content={renderLineLabel} />
+                </Line>
               </LineChart>
             </ResponsiveContainer>
           ) : (
