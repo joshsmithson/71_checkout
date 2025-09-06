@@ -35,6 +35,7 @@ import PauseIcon from '@mui/icons-material/Pause';
 import HomeIcon from '@mui/icons-material/Home';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
+import UndoIcon from '@mui/icons-material/Undo';
 
 // Define types
 interface Player {
@@ -75,7 +76,8 @@ const ActiveGame = () => {
     setGameWinner,
     deleteGame,
     loading,
-    getFriends
+    getFriends,
+    revertToTurn
   } = useSupabase();
 
   // Game state
@@ -96,6 +98,8 @@ const ActiveGame = () => {
   const [confirmDeleteGame, setConfirmDeleteGame] = useState(false);
   const [isSubmittingScore, setIsSubmittingScore] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmRevertTurn, setConfirmRevertTurn] = useState<{open: boolean, turnId: string, turnInfo: string, affectedCount: number} | null>(null);
+  const [isReverting, setIsReverting] = useState(false);
   
   // Game options menu
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -109,114 +113,152 @@ const ActiveGame = () => {
     setMenuAnchorEl(null);
   };
 
-  // Load game data
-  useEffect(() => {
-    const loadGameData = async () => {
-      if (!id) return;
+  // Revert turn functionality
+  const handleRevertTurnClick = (turn: Turn, index: number) => {
+    const player = players.find(p => p.id === turn.player_id && p.type === turn.player_type);
+    const affectedTurns = turns.length - index - 1; // How many turns will be lost
+    
+    setConfirmRevertTurn({
+      open: true,
+      turnId: turn.id,
+      turnInfo: `${player?.name || 'Unknown'} - Turn ${turn.turn_number}`,
+      affectedCount: affectedTurns
+    });
+  };
 
-      try {
-        setIsLoading(true);
-        setError(null);
+  // Load game data function (moved outside useEffect to be reusable)
+  const loadGameData = async () => {
+    if (!id) return;
 
-        // Load game details
-        const game = await getGameById(id);
-        if (!game) {
-          throw new Error('Game not found');
-        }
-        setGameData(game);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        // Load players
-        const gamePlayers = await getGamePlayers(id);
-        if (!gamePlayers) {
-          throw new Error('Failed to load players');
-        }
-
-        // Get all friends first to have their data available
-        const friendsList = await getFriends();
-        
-        // Create players array with additional info
-        const playerArray: Player[] = await Promise.all(
-          gamePlayers.map(async (player) => {
-            let name = 'Unknown';
-            
-            // Get player name
-            if (player.player_type === 'user' && player.player_id === user?.id) {
-              name = user.user_metadata.name || 'You';
-            } else if (player.player_type === 'friend') {
-              // Find the friend name from our friends list
-              const friend = friendsList?.find(f => f.id === player.player_id);
-              if (friend) {
-                name = friend.name;
-              } else {
-                // Fallback
-                name = 'Friend ' + player.order;
-              }
-            }
-
-            return {
-              id: player.player_id,
-              type: player.player_type as 'user' | 'friend',
-              name,
-              order: player.order,
-              score: player.starting_score,
-              startingScore: player.starting_score
-            };
-          })
-        );
-
-        // Sort players by order
-        playerArray.sort((a, b) => a.order - b.order);
-        setPlayers(playerArray);
-
-        // Load turns
-        const gameTurns = await getTurns(id);
-        if (gameTurns && gameTurns.length > 0) {
-          setTurns(gameTurns);
-
-          // Apply turns to player scores
-          const updatedPlayers = [...playerArray];
-          gameTurns.forEach(turn => {
-            const playerIndex = updatedPlayers.findIndex(
-              p => p.id === turn.player_id && p.type === turn.player_type
-            );
-            if (playerIndex !== -1) {
-              updatedPlayers[playerIndex].score = turn.remaining;
-            }
-          });
-          setPlayers(updatedPlayers);
-
-          // Set turn number for next turn
-          setTurnNumber(Math.floor(gameTurns.length / playerArray.length) + 1);
-
-          // Determine current player
-          // Find the last player who took a turn
-          const lastTurn = gameTurns[gameTurns.length - 1];
-          const lastPlayerIndex = updatedPlayers.findIndex(
-            p => p.id === lastTurn.player_id && p.type === lastTurn.player_type
-          );
-          
-          // Next player is the one after the last player
-          setCurrentPlayerIndex((lastPlayerIndex + 1) % updatedPlayers.length);
-        }
-
-        // Get checkout suggestion for current player
-        if (playerArray.length > 0) {
-          const currentPlayer = playerArray[currentPlayerIndex];
-          if (currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1) {
-            const suggestion = await getCheckoutSuggestion(currentPlayer.score);
-            setCheckoutSuggestion(suggestion);
-          } else {
-            setCheckoutSuggestion(null);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading game:', error);
-        setError('Failed to load game data. Please try again.');
-      } finally {
-        setIsLoading(false);
+      // Load game details
+      const game = await getGameById(id);
+      if (!game) {
+        throw new Error('Game not found');
       }
-    };
+      setGameData(game);
 
+      // Load players
+      const gamePlayers = await getGamePlayers(id);
+      if (!gamePlayers) {
+        throw new Error('Failed to load players');
+      }
+
+      // Get all friends first to have their data available
+      const friendsList = await getFriends();
+      
+      // Create players array with additional info
+      const playerArray: Player[] = await Promise.all(
+        gamePlayers.map(async (player) => {
+          let name = 'Unknown';
+          
+          // Get player name
+          if (player.player_type === 'user' && player.player_id === user?.id) {
+            name = user.user_metadata.name || 'You';
+          } else if (player.player_type === 'friend') {
+            // Find the friend name from our friends list
+            const friend = friendsList?.find(f => f.id === player.player_id);
+            if (friend) {
+              name = friend.name;
+            } else {
+              // Fallback
+              name = 'Friend ' + player.order;
+            }
+          }
+
+          return {
+            id: player.player_id,
+            type: player.player_type as 'user' | 'friend',
+            name,
+            order: player.order,
+            score: player.starting_score,
+            startingScore: player.starting_score
+          };
+        })
+      );
+
+      // Sort players by order
+      playerArray.sort((a, b) => a.order - b.order);
+      setPlayers(playerArray);
+
+      // Load turns
+      const gameTurns = await getTurns(id);
+      if (gameTurns && gameTurns.length > 0) {
+        setTurns(gameTurns);
+
+        // Apply turns to player scores
+        const updatedPlayers = [...playerArray];
+        gameTurns.forEach(turn => {
+          const playerIndex = updatedPlayers.findIndex(
+            p => p.id === turn.player_id && p.type === turn.player_type
+          );
+          if (playerIndex !== -1) {
+            updatedPlayers[playerIndex].score = turn.remaining;
+          }
+        });
+        setPlayers(updatedPlayers);
+
+        // Set turn number for next turn
+        setTurnNumber(Math.floor(gameTurns.length / playerArray.length) + 1);
+
+        // Determine current player
+        // Find the last player who took a turn
+        const lastTurn = gameTurns[gameTurns.length - 1];
+        const lastPlayerIndex = updatedPlayers.findIndex(
+          p => p.id === lastTurn.player_id && p.type === lastTurn.player_type
+        );
+        
+        // Next player is the one after the last player
+        setCurrentPlayerIndex((lastPlayerIndex + 1) % updatedPlayers.length);
+      }
+
+      // Get checkout suggestion for current player
+      if (playerArray.length > 0) {
+        const currentPlayer = playerArray[currentPlayerIndex];
+        if (currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1) {
+          const suggestion = await getCheckoutSuggestion(currentPlayer.score);
+          setCheckoutSuggestion(suggestion);
+        } else {
+          setCheckoutSuggestion(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading game:', error);
+      setError('Failed to load game data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmRevert = async () => {
+    if (!confirmRevertTurn) return;
+    
+    setIsReverting(true);
+    try {
+      const result = await revertToTurn(confirmRevertTurn.turnId);
+      
+      if (result?.success) {
+        // Reload game data to reflect the reverted state
+        await loadGameData();
+        setError(null);
+        setShowTurnHistory(false); // Close the turn history dialog
+      } else {
+        setError(result?.error || 'Failed to revert turn');
+      }
+    } catch (err) {
+      console.error('Error reverting turn:', err);
+      setError('Failed to revert turn');
+    } finally {
+      setIsReverting(false);
+      setConfirmRevertTurn(null);
+    }
+  };
+
+  // Load game data on mount
+  useEffect(() => {
     loadGameData();
     // Only run when game id changes or user changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -899,19 +941,35 @@ const ActiveGame = () => {
               {turns.map((turn, index) => {
                 const player = players.find(p => p.id === turn.player_id && p.type === turn.player_type);
                 const turnScore = turn.scores.reduce((sum, score) => sum + score, 0);
+                const affectedTurns = turns.length - index - 1;
                 
                 return (
                   <Box key={index} sx={{ py: 1 }}>
-                    <Typography variant="subtitle2">
-                      {player?.name || 'Unknown'} - Turn {Math.floor(index / players.length) + 1}
-                    </Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {turn.scores.join(' + ')} = {turnScore}
-                      </Typography>
-                      <Typography variant="body2">
-                        Remaining: {turn.remaining}
-                      </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="subtitle2">
+                          {player?.name || 'Unknown'} - Turn {turn.turn_number}
+                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {turn.scores.join(' + ')} = {turnScore}
+                          </Typography>
+                          <Typography variant="body2">
+                            Remaining: {turn.remaining}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      {gameData?.status === 'active' && affectedTurns >= 0 && (
+                        <IconButton
+                          size="small"
+                          color="warning"
+                          onClick={() => handleRevertTurnClick(turn, index)}
+                          sx={{ ml: 1 }}
+                          title={`Revert to this turn (will remove ${affectedTurns} subsequent turn${affectedTurns !== 1 ? 's' : ''})`}
+                        >
+                          <UndoIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
                 );
@@ -1033,6 +1091,43 @@ const ActiveGame = () => {
             startIcon={isDeleting ? <CircularProgress size={20} /> : <DeleteIcon />}
           >
             {isDeleting ? 'Deleting...' : 'Delete Game'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Revert Turn Confirmation Dialog */}
+      <Dialog
+        open={confirmRevertTurn?.open || false}
+        onClose={() => !isReverting && setConfirmRevertTurn(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Revert Turn</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to revert to <strong>{confirmRevertTurn?.turnInfo}</strong>?
+          </Typography>
+          {confirmRevertTurn && confirmRevertTurn.affectedCount > 0 && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              This will permanently remove <strong>{confirmRevertTurn.affectedCount}</strong> turn{confirmRevertTurn.affectedCount !== 1 ? 's' : ''} that came after this turn. This action cannot be undone.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setConfirmRevertTurn(null)} 
+            disabled={isReverting}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="warning" 
+            onClick={handleConfirmRevert}
+            disabled={isReverting}
+            startIcon={isReverting ? <CircularProgress size={20} /> : <UndoIcon />}
+          >
+            {isReverting ? 'Reverting...' : 'Revert Turn'}
           </Button>
         </DialogActions>
       </Dialog>

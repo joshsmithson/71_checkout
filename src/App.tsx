@@ -18,7 +18,7 @@ import RLSDebug from '@/components/auth/RLSDebug';
 import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import GameSetup from '@/pages/GameSetup';
-import ActiveGame from '@/pages/ActiveGame';
+import GameRouter from '@/pages/GameRouter';
 import Statistics from '@/pages/Statistics';
 import Profile from '@/pages/Profile';
 import Leaderboard from '@/pages/Leaderboard';
@@ -182,7 +182,7 @@ function App() {
                 
                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/game/new" element={<ProtectedRoute><GameSetup /></ProtectedRoute>} />
-                <Route path="/game/:id" element={<ProtectedRoute><ActiveGame /></ProtectedRoute>} />
+                <Route path="/game/:id" element={<ProtectedRoute><GameRouter /></ProtectedRoute>} />
                 <Route path="/stats" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
                 <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

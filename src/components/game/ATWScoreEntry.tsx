@@ -20,24 +20,29 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import PublishIcon from '@mui/icons-material/Publish';
 import CelebrationIcon from '@mui/icons-material/Celebration';
 import { useUI } from '@/contexts/UIContext';
+import { ATWGameType, getSequenceForGameType, formatTargetDisplay } from '@/types/around-the-world';
 
 // Create motion components using the recommended API
 const MotionButton = motion.create(Button);
 const MotionChip = motion.create(Chip);
 
-interface ScoreEntryProps {
-  currentPlayerScore: number;
-  onScoreSubmit: (scores: number[]) => void;
+interface ATWScoreEntryProps {
+  gameType: ATWGameType;
+  currentTarget: number;
+  multiplierAdvances: boolean;
+  onScoreSubmit: (hits: number[], multipliers: number[]) => void;
   onCelebrate180?: () => void;
 }
 
-const ScoreEntry: React.FC<ScoreEntryProps> = ({ 
-  currentPlayerScore, 
+const ATWScoreEntry: React.FC<ATWScoreEntryProps> = ({ 
+  gameType,
+  currentTarget,
+  multiplierAdvances,
   onScoreSubmit,
   onCelebrate180
 }) => {
   const { isSoundEnabled } = useUI();
-  const [dartScores, setDartScores] = useState<number[]>([]);
+  const [dartHits, setDartHits] = useState<{ number: number; multiplier: number }[]>([]);
   const [showCelebration, setShowCelebration] = useState(false);
   const [selectedMultiplier, setSelectedMultiplier] = useState<number>(1); // Default to single
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -60,86 +65,51 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
     };
   }, [isSoundEnabled]);
   
-  // Calculate running total
-  const totalScore = dartScores.reduce((sum, score) => sum + score, 0);
+  // Get the game sequence
+  const sequence = getSequenceForGameType(gameType);
   
-  // Check if current entry would result in bust
-  const wouldBust = currentPlayerScore - totalScore < 0 || (currentPlayerScore - totalScore === 1);
-  
-  // Check if current entry is a 180
-  const is180 = totalScore === 180 && dartScores.length === 3;
+  // Check for special achievements
+  const hitTargetThisTurn = dartHits.some(hit => hit.number === currentTarget);
+  const is180 = dartHits.reduce((sum, hit) => sum + (hit.number * hit.multiplier), 0) === 180 && dartHits.length === 3;
 
-  // Update parent component with running total after each dart
-  useEffect(() => {
-    // Send running updates for all dart entries (1st, 2nd, AND 3rd dart)
-    if (dartScores.length > 0 && dartScores.length <= 3) {
-      // We use a special format to indicate this is a running update, not a final submission
-      // Wrap in a try/catch to prevent crashes
-      try {
-        onScoreSubmit([...dartScores, -1]); // The -1 indicates this is a running update
-      } catch (error) {
-        console.error("Error updating score:", error);
-      }
-    } else if (dartScores.length === 0) {
-      // When all darts are removed, send an empty update to reset checkout suggestion
-      try {
-        onScoreSubmit([-1]);
-      } catch (error) {
-        console.error("Error resetting score:", error);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dartScores]); // Remove onScoreSubmit from dependencies to prevent potential loops
-
-  // Handle number button press - now with multiplier first approach
+  // Handle number button press
   const handleNumberPress = (num: number) => {
     // Limit to 3 darts per turn
-    if (dartScores.length >= 3) return;
+    if (dartHits.length >= 3) return;
 
-    // Special cases that ignore multiplier
-    if (num === 25) {
-      // Single Bull
-      setDartScores([...dartScores, 25]);
-    } else if (num === 50) {
-      // Double Bull
-      setDartScores([...dartScores, 50]);
-    } else if (num === 0) {
-      // Miss (0 points)
-      setDartScores([...dartScores, 0]);
-    } else {
-      // Regular numbers 1-20, apply the selected multiplier
-      setDartScores([...dartScores, num * selectedMultiplier]);
-      // Reset multiplier to single after each dart
+    const newHit = { number: num, multiplier: selectedMultiplier };
+    setDartHits([...dartHits, newHit]);
+    
+    // Reset multiplier to single after each dart (unless it's a special button)
+    if (num !== 25 && num !== 50) {
       setSelectedMultiplier(1);
     }
 
     // Play sound if enabled
     if (isSoundEnabled) {
       try {
-        // Check if audio playback is allowed
         const audioContext = audioContextRef.current;
         if (!audioContext) return;
         
         if (audioContext.state === 'suspended') {
-          // Try to resume the audio context if suspended
           audioContext.resume().catch(() => {});
           return;
         }
         
-        // Use a simple oscillator instead of loading a file
+        // Different sound for hitting the target vs missing
+        const frequency = num === currentTarget ? 660 : 440; // Higher pitch for target hit
         const oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
         
         oscillator.type = 'sine';
-        oscillator.frequency.value = 440; // A4 note
-        gain.gain.value = 0.1; // Lower volume
+        oscillator.frequency.value = frequency;
+        gain.gain.value = 0.1;
         
         oscillator.connect(gain);
         gain.connect(audioContext.destination);
         
         oscillator.start();
         
-        // Stop the oscillator after a short time, but don't close the context
         setTimeout(() => {
           try {
             oscillator.stop();
@@ -150,7 +120,6 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
           }
         }, 100);
       } catch (e) {
-        // Silently fail if audio is not supported
         console.log("Audio feedback unavailable");
       }
     }
@@ -163,14 +132,14 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
 
   // Handle backspace button
   const handleBackspace = () => {
-    if (dartScores.length > 0) {
-      setDartScores(dartScores.slice(0, -1));
+    if (dartHits.length > 0) {
+      setDartHits(dartHits.slice(0, -1));
     }
   };
 
   // Handle clear button
   const handleClear = () => {
-    setDartScores([]);
+    setDartHits([]);
   };
 
   // Handle submit button
@@ -181,16 +150,11 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
       return;
     }
     
-    // If it's a bust, record it as [0]
-    if (wouldBust) {
-      onScoreSubmit([0]);
-      setDartScores([]); // Reset dart scores after submission
-      return;
-    }
-    
-    // Otherwise submit the scores
-    onScoreSubmit(dartScores);
-    setDartScores([]); // Reset dart scores after submission
+    // Submit the hits
+    const numbers = dartHits.map(hit => hit.number);
+    const multipliers = dartHits.map(hit => hit.multiplier);
+    onScoreSubmit(numbers, multipliers);
+    setDartHits([]); // Reset dart hits after submission
   };
 
   // Handle celebration confirmation
@@ -199,8 +163,10 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
       onCelebrate180();
     }
     setShowCelebration(false);
-    onScoreSubmit(dartScores);
-    setDartScores([]); // Reset dart scores after celebration
+    const numbers = dartHits.map(hit => hit.number);
+    const multipliers = dartHits.map(hit => hit.multiplier);
+    onScoreSubmit(numbers, multipliers);
+    setDartHits([]); // Reset dart hits after celebration
   };
 
   // Get multiplier text representation
@@ -213,34 +179,42 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
     }
   };
 
+  // Format dart display
+  const formatDartDisplay = (hit: { number: number; multiplier: number }) => {
+    if (hit.number === 25) return '25';
+    if (hit.number === 50) return 'Bull';
+    
+    const prefix = hit.multiplier === 1 ? 'S' : hit.multiplier === 2 ? 'D' : 'T';
+    return `${prefix}${hit.number}`;
+  };
+
   return (
     <>
-      {/* Running Total - More compact and dark theme design */}
+      {/* Current Target and Turn Summary */}
       <Paper sx={{ 
-        p: 0.75, 
+        p: 1, 
         mb: 1, 
         bgcolor: 'grey.900',
         borderRadius: '8px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
       }}>
-        <Grid container alignItems="center" spacing={0}>
-          <Grid item xs={3} sx={{ textAlign: 'center' }}>
+        <Grid container alignItems="center" spacing={1}>
+          <Grid item xs={4}>
             <Typography variant="caption" color="grey.500" sx={{ fontWeight: 'medium', fontSize: '0.75rem', textTransform: 'uppercase' }}>
-              Turn
+              Target
             </Typography>
             <Typography 
               variant="h5" 
               component="div" 
               fontWeight="bold" 
-              className="scores"
-              color={wouldBust ? 'error.main' : 'primary.main'}
+              color="primary.main"
               sx={{ lineHeight: 1.1 }}
             >
-              {totalScore}
+              {formatTargetDisplay(currentTarget)}
             </Typography>
           </Grid>
           
-          <Grid item xs={9}>
+          <Grid item xs={8}>
             <Box sx={{ 
               display: 'flex',
               justifyContent: 'flex-end',
@@ -248,11 +222,11 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
               height: '100%',
               px: 1
             }}>
-              {dartScores.map((score, index) => (
+              {dartHits.map((hit, index) => (
                 <Chip
                   key={index}
-                  label={score}
-                  color={score >= 40 ? 'primary' : 'default'}
+                  label={formatDartDisplay(hit)}
+                  color={hit.number === currentTarget ? 'success' : 'default'}
                   variant="filled"
                   size="small"
                   sx={{ 
@@ -262,7 +236,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
                   }}
                 />
               ))}
-              {[...Array(3 - dartScores.length)].map((_, index) => (
+              {[...Array(3 - dartHits.length)].map((_, index) => (
                 <Box
                   key={`empty-${index}`}
                   sx={{ 
@@ -281,10 +255,10 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
                   <Typography variant="caption" color="grey.600">·</Typography>
                 </Box>
               ))}
-              {wouldBust && (
+              {hitTargetThisTurn && (
                 <Chip 
-                  label="BUST" 
-                  color="error" 
+                  label="HIT!" 
+                  color="success" 
                   size="small" 
                   sx={{ 
                     ml: 0.5,
@@ -356,12 +330,12 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
             </Typography>
           </Grid>
           <Grid item xs={6} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-            {/* Special quick buttons - renamed and resized */}
+            {/* Special quick buttons */}
             <Button 
               variant="outlined"
               color="secondary"
               onClick={() => handleNumberPress(25)} 
-              disabled={dartScores.length >= 3}
+              disabled={dartHits.length >= 3}
               size="small" 
               sx={{ minWidth: 0, px: 1.5, py: 0.6 }}
             >
@@ -371,7 +345,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
               variant="outlined"
               color="secondary"
               onClick={() => handleNumberPress(50)} 
-              disabled={dartScores.length >= 3}
+              disabled={dartHits.length >= 3}
               size="small" 
               sx={{ minWidth: 0, px: 1.5, py: 0.6 }}
             >
@@ -380,7 +354,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
             <Button 
               variant="outlined"
               onClick={() => handleNumberPress(0)} 
-              disabled={dartScores.length >= 3}
+              disabled={dartHits.length >= 3}
               size="small"
               sx={{ minWidth: 0, px: 1.5, py: 0.6 }}
             >
@@ -394,17 +368,19 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map(num => (
             <Grid item xs={2.4} key={num}>
               <Button
-                variant="outlined"
+                variant={num === currentTarget ? "contained" : "outlined"}
+                color={num === currentTarget ? "success" : "primary"}
                 onClick={() => handleNumberPress(num)}
-                disabled={dartScores.length >= 3}
+                disabled={dartHits.length >= 3}
                 sx={{ 
                   width: '100%', 
                   minWidth: 0, 
                   py: 0.75,
                   borderRadius: '8px',
                   transition: 'all 0.2s ease',
+                  fontWeight: num === currentTarget ? 'bold' : 'normal',
                   '&:hover': {
-                    bgcolor: 'primary.light',
+                    bgcolor: num === currentTarget ? 'success.dark' : 'primary.light',
                     color: 'white',
                     transform: 'translateY(-2px)'
                   }
@@ -421,7 +397,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
           <Grid item xs={2}>
             <IconButton 
               onClick={handleBackspace} 
-              disabled={dartScores.length === 0}
+              disabled={dartHits.length === 0}
               color="error"
               sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}
             >
@@ -431,7 +407,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
           <Grid item xs={2}>
             <IconButton 
               onClick={handleClear} 
-              disabled={dartScores.length === 0}
+              disabled={dartHits.length === 0}
               color="error"
               sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}
             >
@@ -441,17 +417,26 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
           <Grid item xs={8}>
             <Button
               variant="contained"
-              color={wouldBust ? 'error' : 'success'}
+              color="success"
               onClick={handleSubmit}
-              disabled={dartScores.length === 0}
+              disabled={dartHits.length === 0}
               fullWidth
               startIcon={<PublishIcon />}
               sx={{ py: 1, borderRadius: '8px' }}
             >
-              {wouldBust ? 'Record Bust' : 'Submit Score'}
+              Submit Turn
             </Button>
           </Grid>
         </Grid>
+
+        {/* Game Rules Reminder */}
+        {multiplierAdvances && (
+          <Box sx={{ mt: 2, p: 1, bgcolor: 'info.dark', borderRadius: 1 }}>
+            <Typography variant="caption" color="info.contrastText">
+              Multiplier Advances: Double = 2 spaces, Triple = 3 spaces
+            </Typography>
+          </Box>
+        )}
       </Paper>
 
       {/* 180 Celebration Dialog */}
@@ -493,4 +478,4 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
   );
 };
 
-export default ScoreEntry; 
+export default ATWScoreEntry;

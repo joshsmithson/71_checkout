@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/utils/supabase';
 import { Database } from '@/types/supabase';
+import { ATWGameType, ATWProgress } from '@/types/around-the-world';
 
 type Tables = Database['public']['Tables'];
 type GameRow = Tables['games']['Row'];
@@ -10,6 +11,7 @@ type TurnRow = Tables['turns']['Row'];
 type FriendRow = Tables['friends']['Row'];
 type StatisticsRow = Tables['statistics']['Row'];
 type RivalRow = Tables['rivals']['Row'];
+type ATWProgressRow = Tables['atw_progress']['Row'];
 
 export const useSupabase = () => {
   const { user } = useAuth();
@@ -1458,6 +1460,114 @@ export const useSupabase = () => {
     });
   };
 
+  // Around the World game operations
+  const initializeATWProgress = async (
+    gameId: string,
+    players: { playerId: string; playerType: 'user' | 'friend' }[],
+    gameType: ATWGameType,
+    multiplierAdvances: boolean
+  ): Promise<ATWProgressRow[] | null> => {
+    const progressRecords = players.map(player => ({
+      game_id: gameId,
+      player_id: player.playerId,
+      player_type: player.playerType,
+      current_target: 1,
+      sequence_position: 1,
+      completed_targets: [],
+      multiplier_advances: multiplierAdvances
+    }));
+
+    return fetchData(async () => {
+      const result = await supabase
+        .from('atw_progress')
+        .insert(progressRecords)
+        .select();
+      
+      return result;
+    });
+  };
+
+  const getATWProgress = async (gameId: string): Promise<ATWProgressRow[] | null> => {
+    return fetchData(async () => {
+      const result = await supabase
+        .from('atw_progress')
+        .select()
+        .eq('game_id', gameId)
+        .order('sequence_position', { ascending: false }); // Order by progress, leaders first
+      
+      return result;
+    });
+  };
+
+  const updateATWProgress = async (
+    gameId: string,
+    playerId: string,
+    playerType: 'user' | 'friend',
+    newTarget: number,
+    newPosition: number,
+    completedTargets: number[]
+  ): Promise<ATWProgressRow | null> => {
+    return fetchData(async () => {
+      const result = await supabase
+        .from('atw_progress')
+        .update({
+          current_target: newTarget,
+          sequence_position: newPosition,
+          completed_targets: completedTargets,
+          updated_at: new Date().toISOString()
+        })
+        .eq('game_id', gameId)
+        .eq('player_id', playerId)
+        .eq('player_type', playerType)
+        .select()
+        .single();
+      
+      return result;
+    });
+  };
+
+  // Add turn specifically for Around the World games
+  const addATWTurn = async (
+    gameId: string,
+    playerId: string,
+    playerType: 'user' | 'friend',
+    turnNumber: number,
+    hits: number[], // Numbers that were hit
+    advances: number, // How many positions advanced
+    positionBefore: number,
+    positionAfter: number,
+    completedGame: boolean = false
+  ): Promise<TurnRow | null> => {
+    return fetchData(async () => {
+      const result = await supabase
+        .from('turns')
+        .insert({
+          game_id: gameId,
+          player_id: playerId,
+          player_type: playerType,
+          turn_number: turnNumber,
+          scores: hits, // Store hit numbers instead of point scores
+          remaining: positionAfter, // Store current position in sequence
+          checkout: completedGame
+        })
+        .select()
+        .single();
+      
+      return result;
+    });
+  };
+
+  // Revert game state to a specific turn
+  const revertToTurn = async (turnId: string): Promise<any | null> => {
+    return fetchData(async () => {
+      const result = await supabase.rpc('revert_to_turn', {
+        target_turn_id: turnId
+      });
+      
+      return result;
+    });
+  };
+
   return {
     loading,
     error,
@@ -1499,5 +1609,12 @@ export const useSupabase = () => {
     getAverageTurnsPerGameType,
     getCheckoutSuccessData,
     getDartScoreFrequency,
+    // Around the World functions
+    initializeATWProgress,
+    getATWProgress,
+    updateATWProgress,
+    addATWTurn,
+    // Revert functionality
+    revertToTurn,
   };
 }; 

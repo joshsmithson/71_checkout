@@ -303,6 +303,52 @@ export interface Database {
           }
         ]
       }
+      atw_progress: {
+        Row: {
+          id: string
+          game_id: string
+          player_id: string
+          player_type: string
+          current_target: number
+          sequence_position: number
+          completed_targets: number[]
+          multiplier_advances: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          game_id: string
+          player_id: string
+          player_type: string
+          current_target?: number
+          sequence_position?: number
+          completed_targets?: number[]
+          multiplier_advances?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          game_id?: string
+          player_id?: string
+          player_type?: string
+          current_target?: number
+          sequence_position?: number
+          completed_targets?: number[]
+          multiplier_advances?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atw_progress_game_id_fkey"
+            columns: ["game_id"]
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
