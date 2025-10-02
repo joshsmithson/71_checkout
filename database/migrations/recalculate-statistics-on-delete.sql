@@ -3,7 +3,11 @@
 
 -- Function to completely recalculate statistics after a game is deleted
 CREATE OR REPLACE FUNCTION recalculate_statistics_after_game_deletion(game_id UUID)
-RETURNS VOID AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   game_record RECORD;
   player_record RECORD;
@@ -201,7 +205,7 @@ BEGIN
   
   RAISE NOTICE 'Statistics recalculated for all players in game %', game_id;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Log that migration was successful
 DO $$

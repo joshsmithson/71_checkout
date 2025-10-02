@@ -1,6 +1,10 @@
 -- Function to revert game state to a specific turn
 CREATE OR REPLACE FUNCTION revert_to_turn(target_turn_id UUID)
-RETURNS JSON AS $$
+RETURNS JSON 
+LANGUAGE plpgsql 
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
     target_turn RECORD;
     affected_turns_count INTEGER;
@@ -126,4 +130,4 @@ BEGIN
     
     RETURN result;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;

@@ -26,7 +26,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useUI } from '@/contexts/UIContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import ScoreEntry from '@/components/game/ScoreEntry';
 import Celebration from '@/components/game/Celebration';
 import HistoryIcon from '@mui/icons-material/History';
@@ -157,7 +157,7 @@ const ActiveGame = () => {
           
           // Get player name
           if (player.player_type === 'user' && player.player_id === user?.id) {
-            name = user.user_metadata.name || 'You';
+            name = user.user_metadata.name?.split(' ')[0] || 'You';
           } else if (player.player_type === 'friend') {
             // Find the friend name from our friends list
             const friend = friendsList?.find(f => f.id === player.player_id);
@@ -201,10 +201,7 @@ const ActiveGame = () => {
         });
         setPlayers(updatedPlayers);
 
-        // Set turn number for next turn
-        setTurnNumber(Math.floor(gameTurns.length / playerArray.length) + 1);
-
-        // Determine current player
+        // Determine current player and turn number
         // Find the last player who took a turn
         const lastTurn = gameTurns[gameTurns.length - 1];
         const lastPlayerIndex = updatedPlayers.findIndex(
@@ -212,7 +209,14 @@ const ActiveGame = () => {
         );
         
         // Next player is the one after the last player
-        setCurrentPlayerIndex((lastPlayerIndex + 1) % updatedPlayers.length);
+        const nextPlayerIndex = (lastPlayerIndex + 1) % updatedPlayers.length;
+        setCurrentPlayerIndex(nextPlayerIndex);
+        
+        // CRITICAL FIX: Calculate turn number based on last recorded turn
+        // If we're back to player 0, increment the turn number
+        const lastTurnNumber = lastTurn.turn_number;
+        const newTurnNumber = nextPlayerIndex === 0 ? lastTurnNumber + 1 : lastTurnNumber;
+        setTurnNumber(newTurnNumber);
       }
 
       // Get checkout suggestion for current player
@@ -365,49 +369,6 @@ const ActiveGame = () => {
       // Check if player has won (checkout)
       const isCheckout = remaining === 0;
       
-      // Check if a turn with the same details already exists
-      const existingTurn = turns.find(
-        t => t.game_id === id && 
-             t.player_id === currentPlayer.id && 
-             t.player_type === currentPlayer.type && 
-             t.turn_number === turnNumber
-      );
-      
-      if (existingTurn) {
-        console.log('Turn already exists, skipping database update');
-        // Just update the UI state without adding a new turn
-        const updatedPlayers = [...players];
-        updatedPlayers[currentPlayerIndex].score = remaining;
-        
-        // Move to next player
-        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
-        
-        // Update turn number if we've gone through all players
-        const newTurnNumber = nextPlayerIndex === 0 ? turnNumber + 1 : turnNumber;
-        
-        // Update UI state
-        setPlayers(updatedPlayers);
-        setCurrentPlayerIndex(nextPlayerIndex);
-        setTurnNumber(newTurnNumber);
-        
-        // Get checkout suggestion for next player
-        const nextPlayer = updatedPlayers[nextPlayerIndex];
-        if (nextPlayer.score <= 170 && nextPlayer.score > 1) {
-          getCheckoutSuggestion(nextPlayer.score)
-            .then(suggestion => {
-              setCheckoutSuggestion(suggestion);
-            })
-            .catch(error => {
-              console.error('Error getting checkout suggestion:', error);
-            });
-        } else {
-          setCheckoutSuggestion(null);
-        }
-        
-        setIsSubmittingScore(false);
-        return;
-      }
-      
       // Create turn record - don't block UI while waiting for the database
       let turn;
       try {
@@ -451,8 +412,10 @@ const ActiveGame = () => {
         }
         
         // Update state before showing dialog to prevent flickering
+        // CRITICAL: Add turn to state first before updating any other state
+        const updatedTurns = [...turns, turn];
+        setTurns(updatedTurns);
         setPlayers(updatedPlayers);
-        setTurns(prevTurns => [...prevTurns, turn]);
         
         // Show confirmation dialog
         setConfirmEndGame(true);
@@ -460,6 +423,9 @@ const ActiveGame = () => {
         return;
       }
 
+      // CRITICAL FIX: Add turn to turns array FIRST before calculating next player
+      const updatedTurns = [...turns, turn];
+      
       // Move to next player
       const nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
       
@@ -468,11 +434,10 @@ const ActiveGame = () => {
       
       // Get checkout suggestion for next player - don't block UI
       const nextPlayer = updatedPlayers[nextPlayerIndex];
-      let newCheckoutSuggestion = null;
       
-      // Update state first, then fetch checkout suggestion separately
+      // CRITICAL: Update all state in one batch with the turn already added
+      setTurns(updatedTurns);
       setPlayers(updatedPlayers);
-      setTurns(prevTurns => [...prevTurns, turn]);
       setCurrentPlayerIndex(nextPlayerIndex);
       setTurnNumber(newTurnNumber);
       
@@ -695,7 +660,7 @@ const ActiveGame = () => {
       )}
 
       {/* Horizontal Player Score Cards - More compact */}
-      <Paper sx={{ mb: 1, overflow: 'hidden' }}>
+      <Paper sx={{ mb: 1, overflow: 'hidden', borderRadius: '12px' }}>
         <Grid container>
           {players.map((player, index) => (
             <Grid 
@@ -764,80 +729,93 @@ const ActiveGame = () => {
         </Grid>
       </Paper>
       
-      {/* Checkout Suggestion - More prominent */}
-      {currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && !isCompleted && !isPaused && checkoutSuggestion && checkoutSuggestion.length > 0 && (
-        <Paper 
-          sx={{ 
-            p: 1.25, 
-            mb: 1, 
-            bgcolor: 'grey.900',
-            color: 'grey.200', 
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-            border: 1,
-            borderColor: 'primary.dark'
-          }}
-        >
-          <Grid container alignItems="center" spacing={1}>
-            <Grid item xs={4}>
-              <Typography sx={{ color: 'grey.300', fontWeight: 'medium', fontSize: '0.85rem' }}>
-                Checkout Path{checkoutSuggestion.length > 1 ? 's' : ''}:
-              </Typography>
-              <Typography color="primary.main" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                {currentPlayer.score}
-              </Typography>
-            </Grid>
-            <Grid item xs={8}>
-              {checkoutSuggestion.map((suggestion, suggestionIndex) => (
-                <Box key={suggestionIndex} sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'flex-start', 
-                  gap: 0.5,
-                  flexWrap: 'wrap',
-                  mt: suggestionIndex > 0 ? 1 : 0,
-                  mb: 0.5
-                }}>
-                  {suggestionIndex > 0 && (
-                    <Typography variant="caption" color="grey.500" sx={{ width: '100%', mb: 0.5 }}>
-                      Alternative:
+      {/* Checkout Suggestion - Smooth animation */}
+      <AnimatePresence mode="wait">
+        {currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && !isCompleted && !isPaused && checkoutSuggestion && checkoutSuggestion.length > 0 && (
+          <motion.div
+            key="checkout-suggestion"
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 8 }}
+            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            transition={{ 
+              duration: 0.25,
+              ease: 'easeInOut'
+            }}
+            style={{ overflow: 'hidden' }}
+          >
+            <Paper 
+              sx={{ 
+                p: 1.25, 
+                bgcolor: 'grey.900',
+                color: 'grey.200', 
+                borderRadius: '12px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                border: 1,
+                borderColor: 'primary.dark'
+              }}
+            >
+              <Grid container alignItems="center" spacing={1}>
+                <Grid item xs={4}>
+                  <Typography sx={{ color: 'grey.300', fontWeight: 'medium', fontSize: '0.85rem' }}>
+                    Checkout Path{checkoutSuggestion.length > 1 ? 's' : ''}:
+                  </Typography>
+                  <Typography color="primary.main" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    {currentPlayer.score}
+                  </Typography>
+                </Grid>
+                <Grid item xs={8}>
+                  {checkoutSuggestion.map((suggestion, suggestionIndex) => (
+                    <Box key={suggestionIndex} sx={{ 
+                      display: 'flex', 
+                      justifyContent: 'flex-start', 
+                      gap: 0.5,
+                      flexWrap: 'wrap',
+                      mt: suggestionIndex > 0 ? 1 : 0,
+                      mb: 0.5
+                    }}>
+                      {suggestionIndex > 0 && (
+                        <Typography variant="caption" color="grey.500" sx={{ width: '100%', mb: 0.5 }}>
+                          Alternative:
+                        </Typography>
+                      )}
+                      {suggestion.map((dart, dartIndex) => {
+                        // Use different colors based on dart type (T/D/S)
+                        const isDartTriple = dart.startsWith('T');
+                        const isDartDouble = dart.startsWith('D');
+                        const isBull = dart === 'Bull';
+                        
+                        return (
+                          <Chip 
+                            key={dartIndex} 
+                            label={dart} 
+                            variant="filled" 
+                            color={isDartTriple ? "error" : isDartDouble ? "primary" : "default"}
+                            size="medium"
+                            sx={{ 
+                              fontWeight: 'bold',
+                              border: isDartTriple || isDartDouble || isBull ? 1 : 0,
+                              borderColor: isBull ? 'error.main' : 'transparent',
+                              bgcolor: isBull ? 'background.paper' : undefined,
+                              color: isBull ? 'error.main' : undefined,
+                              fontSize: '0.85rem',
+                              mb: 0.5
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
+                  ))}
+                  {checkoutSuggestion.length > 0 && (
+                    <Typography variant="caption" color="grey.500" sx={{ textAlign: 'center', display: 'block', mt: 0.5 }}>
+                      Suggested checkout path{checkoutSuggestion.length > 1 ? 's' : ''}
                     </Typography>
                   )}
-                  {suggestion.map((dart, dartIndex) => {
-                    // Use different colors based on dart type (T/D/S)
-                    const isDartTriple = dart.startsWith('T');
-                    const isDartDouble = dart.startsWith('D');
-                    const isBull = dart === 'Bull';
-                    
-                    return (
-                      <Chip 
-                        key={dartIndex} 
-                        label={dart} 
-                        variant="filled" 
-                        color={isDartTriple ? "error" : isDartDouble ? "primary" : "default"}
-                        size="medium"
-                        sx={{ 
-                          fontWeight: 'bold',
-                          border: isDartTriple || isDartDouble || isBull ? 1 : 0,
-                          borderColor: isBull ? 'error.main' : 'transparent',
-                          bgcolor: isBull ? 'background.paper' : undefined,
-                          color: isBull ? 'error.main' : undefined,
-                          fontSize: '0.85rem',
-                          mb: 0.5
-                        }}
-                      />
-                    );
-                  })}
-                </Box>
-              ))}
-              {checkoutSuggestion.length > 0 && (
-                <Typography variant="caption" color="grey.500" sx={{ textAlign: 'center', display: 'block', mt: 0.5 }}>
-                  Suggested checkout path{checkoutSuggestion.length > 1 ? 's' : ''}
-                </Typography>
-              )}
-            </Grid>
-          </Grid>
-        </Paper>
-      )}
+                </Grid>
+              </Grid>
+            </Paper>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {!isCompleted && !isPaused ? (
         <>

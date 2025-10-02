@@ -106,7 +106,7 @@ export const useSupabase = () => {
         .select()
         .eq('id', gameId)
         .eq('creator_id', user.id)
-        .single();
+        .maybeSingle();
       
       if (gameError || !game) {
         throw new Error('Game not found or you do not have permission to delete it');
@@ -427,7 +427,7 @@ export const useSupabase = () => {
           .eq('player_id', playerId)
           .eq('player_type', playerType)
           .eq('winner', true)
-          .in('game_id', gameIds);
+          .in('game_id', gameIds as string[]);
         
         if (winnersError) throw winnersError;
         
@@ -543,7 +543,7 @@ export const useSupabase = () => {
           .eq('player_id', playerId)
           .eq('player_type', playerType)
           .eq('winner', true)
-          .in('game_id', gameIds);
+          .in('game_id', gameIds as string[]);
         
         if (winnersError) throw winnersError;
         
@@ -719,7 +719,7 @@ export const useSupabase = () => {
       if (error) throw error;
     } catch (error) {
       console.error('Error updating rival highlight:', error);
-      setError({ message: 'Failed to update rival highlight' });
+      setError(new Error('Failed to update rival highlight'));
     }
   };
   
@@ -734,7 +734,7 @@ export const useSupabase = () => {
       if (error) throw error;
     } catch (error) {
       console.error('Error deleting rival:', error);
-      setError({ message: 'Failed to delete rival' });
+      setError(new Error('Failed to delete rival'));
     }
   };
   
@@ -764,7 +764,7 @@ export const useSupabase = () => {
       return data;
     } catch (error) {
       console.error('Error adding rival:', error);
-      setError({ message: 'Failed to add new rival' });
+      setError(new Error('Failed to add new rival'));
       return null;
     }
   };

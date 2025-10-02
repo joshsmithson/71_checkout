@@ -189,7 +189,7 @@ const Statistics = () => {
             const processedPlayers = await Promise.all(players.map(async (player) => {
               let name = '';
               if (player.player_type === 'user' && player.player_id === user.id) {
-                name = user.user_metadata?.name || 'You';
+                name = user.user_metadata?.name?.split(' ')[0] || 'You';
               } else if (player.player_type === 'friend') {
                 const friend = friends.find(f => f.id === player.player_id);
                 name = friend?.name || 'Friend';

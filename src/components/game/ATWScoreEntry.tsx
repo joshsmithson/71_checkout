@@ -7,24 +7,24 @@ import {
   Typography,
   IconButton,
   Chip,
-  Stack,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider
+  Stack
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import BackspaceIcon from '@mui/icons-material/Backspace';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PublishIcon from '@mui/icons-material/Publish';
 import CelebrationIcon from '@mui/icons-material/Celebration';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { useUI } from '@/contexts/UIContext';
 import { ATWGameType, getSequenceForGameType, formatTargetDisplay } from '@/types/around-the-world';
 
 // Create motion components using the recommended API
 const MotionButton = motion.create(Button);
-const MotionChip = motion.create(Chip);
 
 interface ATWScoreEntryProps {
   gameType: ATWGameType;
@@ -44,15 +44,27 @@ const ATWScoreEntry: React.FC<ATWScoreEntryProps> = ({
   const { isSoundEnabled } = useUI();
   const [dartHits, setDartHits] = useState<{ number: number; multiplier: number }[]>([]);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [selectedMultiplier, setSelectedMultiplier] = useState<number>(1); // Default to single
+  const [activeTarget, setActiveTarget] = useState(currentTarget); // Track current target for this turn
   const audioContextRef = useRef<AudioContext | null>(null);
+  
+  // Reset active target when currentTarget changes (new turn)
+  useEffect(() => {
+    setActiveTarget(currentTarget);
+  }, [currentTarget]);
+  
+  // Reset dart hits and active target when turn is submitted
+  useEffect(() => {
+    if (dartHits.length === 0) {
+      setActiveTarget(currentTarget);
+    }
+  }, [dartHits.length, currentTarget]);
   
   // Initialize audio context once
   useEffect(() => {
     if (isSoundEnabled) {
       try {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      } catch (e) {
+      } catch {
         console.log("Audio context not supported");
       }
     }
@@ -69,77 +81,111 @@ const ATWScoreEntry: React.FC<ATWScoreEntryProps> = ({
   const sequence = getSequenceForGameType(gameType);
   
   // Check for special achievements
-  const hitTargetThisTurn = dartHits.some(hit => hit.number === currentTarget);
   const is180 = dartHits.reduce((sum, hit) => sum + (hit.number * hit.multiplier), 0) === 180 && dartHits.length === 3;
-
-  // Handle number button press
-  const handleNumberPress = (num: number) => {
-    // Limit to 3 darts per turn
-    if (dartHits.length >= 3) return;
-
-    const newHit = { number: num, multiplier: selectedMultiplier };
-    setDartHits([...dartHits, newHit]);
+  
+  // Calculate next target in sequence
+  const getNextTarget = (currentSeqTarget: number, advancement: number) => {
+    const currentIndex = sequence.indexOf(currentSeqTarget);
+    if (currentIndex === -1) return currentSeqTarget; // Safety check
     
-    // Reset multiplier to single after each dart (unless it's a special button)
-    if (num !== 25 && num !== 50) {
-      setSelectedMultiplier(1);
-    }
+    const nextIndex = (currentIndex + advancement) % sequence.length;
+    return sequence[nextIndex];
+  };
 
-    // Play sound if enabled
-    if (isSoundEnabled) {
-      try {
-        const audioContext = audioContextRef.current;
-        if (!audioContext) return;
-        
-        if (audioContext.state === 'suspended') {
-          audioContext.resume().catch(() => {});
-          return;
-        }
-        
-        // Different sound for hitting the target vs missing
-        const frequency = num === currentTarget ? 660 : 440; // Higher pitch for target hit
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        
-        oscillator.type = 'sine';
-        oscillator.frequency.value = frequency;
-        gain.gain.value = 0.1;
-        
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-        
-        oscillator.start();
-        
-        setTimeout(() => {
-          try {
-            oscillator.stop();
-            oscillator.disconnect();
-            gain.disconnect();
-          } catch (e) {
-            // Ignore oscillator stop errors
-          }
-        }, 100);
-      } catch (e) {
-        console.log("Audio feedback unavailable");
+  // Play sound
+  const playSound = (isHit: boolean) => {
+    if (!isSoundEnabled) return;
+    
+    try {
+      const audioContext = audioContextRef.current;
+      if (!audioContext) return;
+      
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+        return;
       }
+      
+      // Different sound for hit vs miss
+      const frequency = isHit ? 660 : 440; // Higher pitch for hit
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+      gain.gain.value = 0.1;
+      
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      
+      oscillator.start();
+      
+      setTimeout(() => {
+        try {
+          oscillator.stop();
+          oscillator.disconnect();
+          gain.disconnect();
+        } catch {
+          // Ignore oscillator stop errors
+        }
+      }, 100);
+    } catch {
+      console.log("Audio feedback unavailable");
     }
   };
 
-  // Handle multiplier selection
-  const handleMultiplierSelect = (multiplier: number) => {
-    setSelectedMultiplier(multiplier);
+  // Handle hit button press
+  const handleHit = (multiplier: number) => {
+    // Limit to 3 darts per turn
+    if (dartHits.length >= 3) return;
+
+    const newHit = { number: activeTarget, multiplier };
+    setDartHits([...dartHits, newHit]);
+    playSound(true);
+    
+    // Advance the target for the next dart in this turn
+    if (multiplierAdvances) {
+      // In multiplier advance mode: single=1 space, double=2 spaces, triple=3 spaces
+      setActiveTarget(getNextTarget(activeTarget, multiplier));
+    } else {
+      // In standard mode: always advance 1 space on hit
+      setActiveTarget(getNextTarget(activeTarget, 1));
+    }
+  };
+
+  // Handle miss button press
+  const handleMiss = () => {
+    // Limit to 3 darts per turn
+    if (dartHits.length >= 3) return;
+
+    const newHit = { number: 0, multiplier: 0 };
+    setDartHits([...dartHits, newHit]);
+    playSound(false);
   };
 
   // Handle backspace button
   const handleBackspace = () => {
     if (dartHits.length > 0) {
       setDartHits(dartHits.slice(0, -1));
+      
+      // Recalculate the active target by replaying all remaining hits
+      let target = currentTarget;
+      const remainingHits = dartHits.slice(0, -1);
+      
+      for (const hit of remainingHits) {
+        if (hit.number > 0) { // Only advance on hits, not misses
+          const advancement = multiplierAdvances ? hit.multiplier : 1;
+          target = getNextTarget(target, advancement);
+        }
+      }
+      
+      setActiveTarget(target);
     }
   };
 
   // Handle clear button
   const handleClear = () => {
     setDartHits([]);
+    setActiveTarget(currentTarget); // Reset to original target
   };
 
   // Handle submit button
@@ -169,260 +215,239 @@ const ATWScoreEntry: React.FC<ATWScoreEntryProps> = ({
     setDartHits([]); // Reset dart hits after celebration
   };
 
-  // Get multiplier text representation
-  const getMultiplierLabel = (multiplier: number) => {
-    switch(multiplier) {
-      case 1: return 'Single';
-      case 2: return 'Double';
-      case 3: return 'Triple';
-      default: return 'Single';
-    }
-  };
-
   // Format dart display
   const formatDartDisplay = (hit: { number: number; multiplier: number }) => {
-    if (hit.number === 25) return '25';
-    if (hit.number === 50) return 'Bull';
+    if (hit.number === 0) return 'Miss';
     
-    const prefix = hit.multiplier === 1 ? 'S' : hit.multiplier === 2 ? 'D' : 'T';
-    return `${prefix}${hit.number}`;
+    const prefix = hit.multiplier === 1 ? '' : hit.multiplier === 2 ? 'D' : 'T';
+    const targetDisplay = formatTargetDisplay(hit.number);
+    return prefix ? `${prefix}${targetDisplay}` : targetDisplay;
+  };
+  
+  // Check if current dart hit the target
+  const isDartHit = (hit: { number: number; multiplier: number }) => {
+    return hit.number > 0; // Any non-zero number is a hit
   };
 
   return (
     <>
       {/* Current Target and Turn Summary */}
       <Paper sx={{ 
-        p: 1, 
-        mb: 1, 
+        p: 2, 
+        mb: 2, 
         bgcolor: 'grey.900',
-        borderRadius: '8px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
       }}>
-        <Grid container alignItems="center" spacing={1}>
-          <Grid item xs={4}>
-            <Typography variant="caption" color="grey.500" sx={{ fontWeight: 'medium', fontSize: '0.75rem', textTransform: 'uppercase' }}>
-              Target
-            </Typography>
-            <Typography 
-              variant="h5" 
-              component="div" 
-              fontWeight="bold" 
-              color="primary.main"
-              sx={{ lineHeight: 1.1 }}
+        <Typography 
+          variant="caption" 
+          color="grey.500" 
+          sx={{ 
+            fontWeight: 'medium', 
+            fontSize: '0.75rem', 
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}
+        >
+          Current Target
+        </Typography>
+        <Typography 
+          variant="h3" 
+          component="div" 
+          fontWeight="bold" 
+          color="primary.main"
+          sx={{ mb: 2, lineHeight: 1 }}
+        >
+          {formatTargetDisplay(activeTarget)}
+        </Typography>
+        
+        {/* Darts thrown this turn */}
+        <Box sx={{ 
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 1,
+          minHeight: '36px'
+        }}>
+          {dartHits.map((hit, index) => (
+            <Chip
+              key={index}
+              label={formatDartDisplay(hit)}
+              color={isDartHit(hit) ? 'success' : 'default'}
+              variant="filled"
+              size="medium"
+              icon={isDartHit(hit) ? <CheckCircleIcon /> : <CancelIcon />}
+              sx={{ 
+                fontWeight: 'bold',
+                fontSize: '0.9rem',
+                px: 1
+              }}
+            />
+          ))}
+          {[...Array(3 - dartHits.length)].map((_, index) => (
+            <Box
+              key={`empty-${index}`}
+              sx={{ 
+                width: '60px', 
+                height: '32px', 
+                border: '2px dashed', 
+                borderColor: 'grey.700', 
+                borderRadius: '16px',
+                opacity: 0.3,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }}
             >
-              {formatTargetDisplay(currentTarget)}
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={8}>
-            <Box sx={{ 
-              display: 'flex',
-              justifyContent: 'flex-end',
-              alignItems: 'center',
-              height: '100%',
-              px: 1
-            }}>
-              {dartHits.map((hit, index) => (
-                <Chip
-                  key={index}
-                  label={formatDartDisplay(hit)}
-                  color={hit.number === currentTarget ? 'success' : 'default'}
-                  variant="filled"
-                  size="small"
-                  sx={{ 
-                    mx: 0.25, 
-                    fontWeight: 'bold',
-                    height: '24px',
-                  }}
-                />
-              ))}
-              {[...Array(3 - dartHits.length)].map((_, index) => (
-                <Box
-                  key={`empty-${index}`}
-                  sx={{ 
-                    width: '26px', 
-                    height: '20px', 
-                    border: '1px dashed', 
-                    borderColor: 'grey.700', 
-                    borderRadius: '12px',
-                    mx: 0.25,
-                    opacity: 0.4,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}
-                >
-                  <Typography variant="caption" color="grey.600">·</Typography>
-                </Box>
-              ))}
-              {hitTargetThisTurn && (
-                <Chip 
-                  label="HIT!" 
-                  color="success" 
-                  size="small" 
-                  sx={{ 
-                    ml: 0.5,
-                    height: '20px', 
-                    '& .MuiChip-label': { px: 1, fontSize: '0.6rem', fontWeight: 'bold' }
-                  }} 
-                />
-              )}
+              <Typography variant="caption" color="grey.600">·</Typography>
             </Box>
-          </Grid>
-        </Grid>
+          ))}
+        </Box>
       </Paper>
 
-      {/* Mobile-optimized Score Entry */}
-      <Paper sx={{ p: 1.5, mb: 1, borderRadius: '8px' }}>
-        {/* Multiplier Selection - Select this FIRST */}
-        <Grid container spacing={1} sx={{ mb: 1 }}>
-          <Grid item xs={3} sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
-              Step 1:
-            </Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Button
-              variant={selectedMultiplier === 1 ? "contained" : "outlined"}
-              color="primary"
-              fullWidth
-              onClick={() => handleMultiplierSelect(1)}
-              sx={{ py: 0.75, borderRadius: '8px' }}
-            >
-              Single
-            </Button>
-          </Grid>
-          <Grid item xs={3}>
-            <Button
-              variant={selectedMultiplier === 2 ? "contained" : "outlined"}
-              color="primary"
-              fullWidth
-              onClick={() => handleMultiplierSelect(2)}
-              sx={{ py: 0.75, borderRadius: '8px' }}
-            >
-              Double
-            </Button>
-          </Grid>
-          <Grid item xs={3}>
-            <Button
-              variant={selectedMultiplier === 3 ? "contained" : "outlined"}
-              color="primary"
-              fullWidth
-              onClick={() => handleMultiplierSelect(3)}
-              sx={{ py: 0.75, borderRadius: '8px' }}
-            >
-              Triple
-            </Button>
-          </Grid>
-        </Grid>
+      {/* Simplified Hit/Miss Controls */}
+      <Paper sx={{ p: 2, mb: 2, borderRadius: '12px' }}>
+        <Typography 
+          variant="subtitle2" 
+          color="text.secondary" 
+          sx={{ mb: 2, textAlign: 'center', fontWeight: 'medium' }}
+        >
+          Did you hit {formatTargetDisplay(activeTarget)}?
+        </Typography>
 
-        <Divider sx={{ my: 1 }} />
-        
-        {/* Number Selection - AFTER selecting multiplier */}
-        <Grid container sx={{ mb: 1 }}>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
-              Step 2: {selectedMultiplier > 1 && 
-                <Typography component="span" color="primary.main" fontWeight="bold">
-                  {selectedMultiplier === 2 ? 'Double' : 'Triple'}
-                </Typography>
-              }
-            </Typography>
-          </Grid>
-          <Grid item xs={6} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-            {/* Special quick buttons */}
-            <Button 
-              variant="outlined"
-              color="secondary"
-              onClick={() => handleNumberPress(25)} 
-              disabled={dartHits.length >= 3}
-              size="small" 
-              sx={{ minWidth: 0, px: 1.5, py: 0.6 }}
-            >
-              25
-            </Button>
-            <Button 
-              variant="outlined"
-              color="secondary"
-              onClick={() => handleNumberPress(50)} 
-              disabled={dartHits.length >= 3}
-              size="small" 
-              sx={{ minWidth: 0, px: 1.5, py: 0.6 }}
-            >
-              Bull
-            </Button>
-            <Button 
-              variant="outlined"
-              onClick={() => handleNumberPress(0)} 
-              disabled={dartHits.length >= 3}
-              size="small"
-              sx={{ minWidth: 0, px: 1.5, py: 0.6 }}
-            >
-              Miss
-            </Button>
-          </Grid>
-        </Grid>
-        
-        {/* Numbers Pad in a 5x4 grid layout with larger buttons */}
-        <Grid container spacing={1} sx={{ mb: 1 }}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map(num => (
-            <Grid item xs={2.4} key={num}>
-              <Button
-                variant={num === currentTarget ? "contained" : "outlined"}
-                color={num === currentTarget ? "success" : "primary"}
-                onClick={() => handleNumberPress(num)}
-                disabled={dartHits.length >= 3}
-                sx={{ 
-                  width: '100%', 
-                  minWidth: 0, 
-                  py: 0.75,
-                  borderRadius: '8px',
-                  transition: 'all 0.2s ease',
-                  fontWeight: num === currentTarget ? 'bold' : 'normal',
-                  '&:hover': {
-                    bgcolor: num === currentTarget ? 'success.dark' : 'primary.light',
-                    color: 'white',
-                    transform: 'translateY(-2px)'
-                  }
-                }}
-              >
-                {num}
-              </Button>
+        {/* Hit buttons */}
+        <Stack spacing={1.5} sx={{ mb: 2 }}>
+          <MotionButton
+            variant="contained"
+            color="success"
+            size="large"
+            fullWidth
+            onClick={() => handleHit(1)}
+            disabled={dartHits.length >= 3}
+            startIcon={<CheckCircleIcon />}
+            whileTap={{ scale: 0.95 }}
+            sx={{ 
+              py: 2, 
+              borderRadius: '12px',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              boxShadow: 3
+            }}
+          >
+            HIT (Single)
+          </MotionButton>
+
+          {/* Double/Triple buttons - only show if multiplier advances mode */}
+          {multiplierAdvances && (
+            <Grid container spacing={1}>
+              <Grid item xs={6}>
+                <MotionButton
+                  variant="contained"
+                  color="success"
+                  size="large"
+                  fullWidth
+                  onClick={() => handleHit(2)}
+                  disabled={dartHits.length >= 3}
+                  whileTap={{ scale: 0.95 }}
+                  sx={{ 
+                    py: 1.5, 
+                    borderRadius: '12px',
+                    fontWeight: 'bold',
+                    bgcolor: 'success.dark'
+                  }}
+                >
+                  HIT (Double)
+                </MotionButton>
+              </Grid>
+              <Grid item xs={6}>
+                <MotionButton
+                  variant="contained"
+                  color="success"
+                  size="large"
+                  fullWidth
+                  onClick={() => handleHit(3)}
+                  disabled={dartHits.length >= 3}
+                  whileTap={{ scale: 0.95 }}
+                  sx={{ 
+                    py: 1.5, 
+                    borderRadius: '12px',
+                    fontWeight: 'bold',
+                    bgcolor: 'success.dark'
+                  }}
+                >
+                  HIT (Triple)
+                </MotionButton>
+              </Grid>
             </Grid>
-          ))}
-        </Grid>
+          )}
+
+          <MotionButton
+            variant="outlined"
+            color="error"
+            size="large"
+            fullWidth
+            onClick={handleMiss}
+            disabled={dartHits.length >= 3}
+            startIcon={<CancelIcon />}
+            whileTap={{ scale: 0.95 }}
+            sx={{ 
+              py: 2, 
+              borderRadius: '12px',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              borderWidth: 2,
+              '&:hover': {
+                borderWidth: 2
+              }
+            }}
+          >
+            MISS
+          </MotionButton>
+        </Stack>
 
         {/* Control buttons */}
         <Grid container spacing={1}>
-          <Grid item xs={2}>
+          <Grid item xs={3}>
             <IconButton 
               onClick={handleBackspace} 
               disabled={dartHits.length === 0}
-              color="error"
-              sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}
+              color="warning"
+              sx={{ 
+                width: '100%',
+                border: '2px solid', 
+                borderColor: dartHits.length === 0 ? 'divider' : 'warning.main',
+                borderRadius: '12px',
+                py: 1
+              }}
             >
               <BackspaceIcon />
             </IconButton>
           </Grid>
-          <Grid item xs={2}>
+          <Grid item xs={3}>
             <IconButton 
               onClick={handleClear} 
               disabled={dartHits.length === 0}
               color="error"
-              sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}
+              sx={{ 
+                width: '100%',
+                border: '2px solid', 
+                borderColor: dartHits.length === 0 ? 'divider' : 'error.main',
+                borderRadius: '12px',
+                py: 1
+              }}
             >
               <DeleteIcon />
             </IconButton>
           </Grid>
-          <Grid item xs={8}>
+          <Grid item xs={6}>
             <Button
               variant="contained"
-              color="success"
+              color="primary"
               onClick={handleSubmit}
               disabled={dartHits.length === 0}
               fullWidth
               startIcon={<PublishIcon />}
-              sx={{ py: 1, borderRadius: '8px' }}
+              sx={{ py: 1.5, borderRadius: '12px', fontWeight: 'bold' }}
             >
               Submit Turn
             </Button>
@@ -431,9 +456,9 @@ const ATWScoreEntry: React.FC<ATWScoreEntryProps> = ({
 
         {/* Game Rules Reminder */}
         {multiplierAdvances && (
-          <Box sx={{ mt: 2, p: 1, bgcolor: 'info.dark', borderRadius: 1 }}>
-            <Typography variant="caption" color="info.contrastText">
-              Multiplier Advances: Double = 2 spaces, Triple = 3 spaces
+          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'info.dark', borderRadius: '8px' }}>
+            <Typography variant="caption" color="info.contrastText" sx={{ fontSize: '0.75rem' }}>
+              💡 <strong>Multiplier Advances:</strong> Double = 2 spaces forward, Triple = 3 spaces forward
             </Typography>
           </Box>
         )}

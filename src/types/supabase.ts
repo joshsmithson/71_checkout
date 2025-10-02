@@ -372,21 +372,41 @@ export interface Database {
       }
       get_rivalry_stats: {
         Args: {
-          player1_id: string
-          player2_id: string
+          param_player1_id: string
+          param_player2_id: string
         }
-        Returns: {
-          player1_wins: number
-          player2_wins: number
-          total_games: number
-          last_game_date: string
-        }[]
+        Returns: Json
       }
       suggest_checkout: {
         Args: {
           remaining_score: number
         }
         Returns: string[]
+      }
+      recalculate_statistics_after_game_deletion: {
+        Args: {
+          game_id: string
+        }
+        Returns: void
+      }
+      delete_friend_and_data: {
+        Args: {
+          friend_id: string
+          creator_user_id: string
+        }
+        Returns: Json
+      }
+      reconcile_user_statistics: {
+        Args: {
+          user_id: string
+        }
+        Returns: Json
+      }
+      revert_to_turn: {
+        Args: {
+          target_turn_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

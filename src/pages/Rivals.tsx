@@ -78,7 +78,8 @@ const Rivals = () => {
     loading,
     error,
     toggleRivalHighlight,
-    deleteRival
+    deleteRival,
+    addRival
   } = useSupabase();
   
   const [rivals, setRivals] = useState<Rival[]>([]);
@@ -143,7 +144,11 @@ const Rivals = () => {
         return bTotalGames - aTotalGames;
       });
       
-      setRivals(sortedRivals);
+      setRivals(sortedRivals.map(r => ({
+        ...r,
+        player1_type: r.player1_type as 'user' | 'friend',
+        player2_type: r.player2_type as 'user' | 'friend'
+      })));
     }
   };
   
@@ -203,33 +208,17 @@ const Rivals = () => {
       let streakHolder: 'player1' | 'player2' | null = null;
       
       if (games) {
-        // Filter games where BOTH players participated (regardless of how many total players)
-        const relevantGames = games
-          .filter(game => {
-            // Check if we have a game_players relationship that includes both rivals
-            const hasRivalId = game.id === resolvedRival.last_game_id || game.rivalry_ids?.includes(resolvedRival.id);
-            
-            // If we don't have rivalry_ids, we need to manually check if both players participated
-            if (!hasRivalId && !game.rivalry_ids) {
-              // We'll need to check the game_players table for this game
-              // But since we don't have that data here, we'll use the game
-              // if at least we know it's completed and related to one of the players
-              return game.status === 'completed' && 
-                    (game.player_ids?.includes(resolvedRival.player1_id) && 
-                     game.player_ids?.includes(resolvedRival.player2_id));
-            }
-            
-            return hasRivalId;
-          })
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        // Streak calculation requires more data than we have from games table alone
+        // The rivalry stats from getRivalryStats already include this information
+        currentStreak = 0;
+        streakHolder = null;
         
-        // Calculate current streak
-        if (relevantGames.length > 0) {
-          // For each game, check which of our two rivals won (if any)
-          for (const game of relevantGames) {
-            // If the winner ID matches one of our rivals
-            const isPlayer1Winner = game.winner_id === resolvedRival.player1_id;
-            const isPlayer2Winner = game.winner_id === resolvedRival.player2_id;
+        if (false) {
+          // This code is disabled as we don't have winner_id on games table
+          // Streak calculation is handled via rivalry stats instead
+          for (const game of games) {
+            const isPlayer1Winner = false;
+            const isPlayer2Winner = false;
             
             if (isPlayer1Winner || isPlayer2Winner) {
               const currentWinner = isPlayer1Winner ? 'player1' : 'player2';

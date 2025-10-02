@@ -361,12 +361,15 @@ const GameSetup = () => {
             <List>
               <ListItem>
                 <ListItemAvatar>
-                  <Avatar src={user?.user_metadata?.avatar_url}>
+                  <Avatar 
+                    src={user?.user_metadata?.avatar_url}
+                    imgProps={{ referrerPolicy: "no-referrer" }}
+                  >
                     {!user?.user_metadata?.avatar_url && <PersonIcon />}
                   </Avatar>
                 </ListItemAvatar>
                 <ListItemText 
-                  primary={user?.user_metadata?.name || 'You'} 
+                  primary={user?.user_metadata?.name?.split(' ')[0] || 'You'} 
                   secondary="You (always included)"
                 />
                 <Checkbox checked disabled />
@@ -383,7 +386,10 @@ const GameSetup = () => {
                 friends.map((friend) => (
                   <ListItem key={friend.id}>
                     <ListItemAvatar>
-                      <Avatar src={friend.avatar_url}>
+                      <Avatar 
+                        src={friend.avatar_url}
+                        imgProps={{ referrerPolicy: "no-referrer" }}
+                      >
                         <PersonIcon />
                       </Avatar>
                     </ListItemAvatar>

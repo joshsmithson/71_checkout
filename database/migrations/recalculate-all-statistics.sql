@@ -3,7 +3,11 @@
 
 -- Function to recalculate all statistics for all players
 CREATE OR REPLACE FUNCTION recalculate_all_statistics()
-RETURNS VOID AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   player_record RECORD;
   game_type_record TEXT;
@@ -140,7 +144,7 @@ BEGIN
   
   RAISE NOTICE 'All statistics have been recalculated successfully';
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Execute the function to recalculate all statistics
 SELECT recalculate_all_statistics();

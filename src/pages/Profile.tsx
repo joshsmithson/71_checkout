@@ -26,12 +26,13 @@ const Profile = () => {
         <Card sx={{ mt: 2, borderRadius: 2 }}>
           <CardContent sx={{ display: 'flex', alignItems: 'center' }}>
             <Avatar 
-              src={user?.user_metadata?.avatar_url} 
+            src={user?.user_metadata?.avatar_url}
+            imgProps={{ referrerPolicy: "no-referrer" }}
               alt={user?.user_metadata?.name || 'User'}
               sx={{ width: 60, height: 60, mr: 2 }}
             />
             <Box>
-              <Typography variant="h6">{user?.user_metadata?.name || 'User'}</Typography>
+              <Typography variant="h6">{user?.user_metadata?.name?.split(' ')[0] || 'User'}</Typography>
               <Typography variant="body2" color="text.secondary">{user?.email}</Typography>
             </Box>
           </CardContent>

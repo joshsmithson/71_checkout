@@ -153,7 +153,7 @@ const ActiveATWGame = () => {
             
             // Get player name
             if (player.player_type === 'user' && player.player_id === user?.id) {
-              name = user.user_metadata.name || 'You';
+            name = user.user_metadata.name?.split(' ')[0] || 'You';
             } else if (player.player_type === 'friend') {
               // Find the friend name from our friends list
               const friend = friendsList?.find(f => f.id === player.player_id);
@@ -186,19 +186,24 @@ const ActiveATWGame = () => {
               p.player_id === player.id && p.player_type === player.type
             );
             
+            const progressWithType = progress || {
+              id: '',
+              game_id: id,
+              player_id: player.id,
+              player_type: player.type as 'user' | 'friend',
+              current_target: 1,
+              sequence_position: 1,
+              completed_targets: [],
+              multiplier_advances: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            
             return {
               ...player,
-              progress: progress || {
-                id: '',
-                game_id: id,
-                player_id: player.id,
-                player_type: player.type,
-                current_target: 1,
-                sequence_position: 1,
-                completed_targets: [],
-                multiplier_advances: false,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+              progress: {
+                ...progressWithType,
+                player_type: progressWithType.player_type as 'user' | 'friend'
               }
             };
           });

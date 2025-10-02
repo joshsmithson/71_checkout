@@ -3,7 +3,11 @@
 
 -- Function to revert statistics when a completed game is deleted
 CREATE OR REPLACE FUNCTION revert_statistics_for_deleted_game(game_id UUID)
-RETURNS VOID AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   game_record RECORD;
 BEGIN
@@ -128,7 +132,7 @@ BEGIN
      
   RAISE NOTICE 'Statistics reverted for game %', game_id;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Log that migration was successful
 DO $$

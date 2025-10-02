@@ -1,6 +1,10 @@
 -- Function to reconcile statistics for a specific user
 CREATE OR REPLACE FUNCTION reconcile_user_statistics(user_id UUID)
-RETURNS JSON AS $$
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   result JSON;
   games_before INTEGER;
@@ -150,4 +154,4 @@ EXCEPTION WHEN OTHERS THEN
   
   RETURN result;
 END;
-$$ LANGUAGE plpgsql; 
+$$; 

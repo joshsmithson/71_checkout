@@ -1,6 +1,10 @@
 -- Function to update statistics after a game is completed
 CREATE OR REPLACE FUNCTION update_statistics_after_game()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 BEGIN
   -- Only process completed games
   IF NEW.status = 'completed' AND (OLD.status IS NULL OR OLD.status <> 'completed') THEN
@@ -179,11 +183,15 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Function to revert statistics when a completed game is deleted
 CREATE OR REPLACE FUNCTION revert_statistics_for_deleted_game(game_id UUID)
-RETURNS VOID AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   game_record RECORD;
 BEGIN
@@ -308,9 +316,10 @@ BEGIN
      
   RAISE NOTICE 'Statistics reverted for game %', game_id;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Trigger to update statistics when a game is completed
+DROP TRIGGER IF EXISTS update_stats_on_game_complete ON games;
 CREATE TRIGGER update_stats_on_game_complete
 AFTER UPDATE ON games
 FOR EACH ROW
@@ -328,7 +337,11 @@ RETURNS TABLE (
   average_per_dart NUMERIC,
   highest_turn INTEGER,
   count_180 BIGINT
-) AS $$
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 BEGIN
   RETURN QUERY
   WITH player_stats AS (
@@ -382,13 +395,17 @@ BEGIN
     ps.games_won DESC,
     ps.average_per_dart DESC;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Function to get rivalry stats between two players
 DROP FUNCTION IF EXISTS get_rivalry_stats(UUID, UUID);
 
 CREATE OR REPLACE FUNCTION get_rivalry_stats(param_player1_id UUID, param_player2_id UUID)
-RETURNS JSON AS $$
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   result JSON;
 BEGIN
@@ -470,11 +487,15 @@ BEGIN
   
   RETURN result;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Function to suggest checkout combinations
 CREATE OR REPLACE FUNCTION suggest_checkout(remaining_score INTEGER)
-RETURNS TEXT[] AS $$
+RETURNS TEXT[]
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   suggestion TEXT[];
 BEGIN
@@ -653,11 +674,15 @@ BEGIN
   
   RETURN suggestion;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Function to reconcile statistics for a specific user
 CREATE OR REPLACE FUNCTION reconcile_user_statistics(user_id UUID)
-RETURNS JSON AS $$
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   result JSON;
   games_before INTEGER;
@@ -773,4 +798,4 @@ EXCEPTION WHEN OTHERS THEN
   
   RETURN result;
 END;
-$$ LANGUAGE plpgsql;
+$$;

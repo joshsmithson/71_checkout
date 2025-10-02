@@ -21,8 +21,8 @@ const ATWProgressTracker: React.FC<ATWProgressTrackerProps> = ({
   currentPlayerId,
   currentPlayerType
 }) => {
-  // Sort players by progress (most advanced first)
-  const sortedPlayers = [...players].sort((a, b) => b.progress.sequence_position - a.progress.sequence_position);
+  // Sort players by their original order (not by progress)
+  const sortedPlayers = [...players].sort((a, b) => a.order - b.order);
   
   // Determine leader(s)
   const maxPosition = Math.max(...players.map(p => p.progress.sequence_position));

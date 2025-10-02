@@ -266,7 +266,8 @@ const Celebration = ({ open, onClose }: CelebrationProps) => {
                 }}
               >
                 <Avatar 
-                  src={caller.avatar} 
+                  src={caller.avatar}
+                  imgProps={{ referrerPolicy: "no-referrer" }}
                   sx={{ 
                     width: 120, 
                     height: 120, 

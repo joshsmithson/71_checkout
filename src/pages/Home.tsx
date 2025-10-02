@@ -268,49 +268,47 @@ const Home = () => {
                         whileHover={{ scale: 1.02 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <CardActionArea onClick={() => navigate(`/game/${game.id}`)}>
-                          <CardContent sx={{ position: 'relative', pr: 8 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <Box>
-                                <Typography variant="h6" fontWeight="medium">
-                                  {game.type} Game
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  {formatDate(game.created_at)}
-                                </Typography>
+                        <Box sx={{ position: 'relative' }}>
+                          <CardActionArea onClick={() => navigate(`/game/${game.id}`)}>
+                            <CardContent sx={{ pr: 8 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box>
+                                  <Typography variant="h6" fontWeight="medium">
+                                    {game.type} Game
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {formatDate(game.created_at)}
+                                  </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <Chip 
+                                    label={game.status.toUpperCase()}
+                                    color={getStatusColor(game.status) as "success" | "warning" | "info"}
+                                    size="small"
+                                    sx={{ mr: 1 }}
+                                  />
+                                  <PlayArrowIcon color="primary" />
+                                </Box>
                               </Box>
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <Chip 
-                                  label={game.status.toUpperCase()}
-                                  color={getStatusColor(game.status) as "success" | "warning" | "info"}
-                                  size="small"
-                                  sx={{ mr: 1 }}
-                                />
-                                <PlayArrowIcon color="primary" />
-                              </Box>
-                            </Box>
-                            <IconButton
-                              aria-label="game-options"
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                handleGameMenuOpen(e, game.id);
-                              }}
-                              sx={{ 
-                                position: 'absolute', 
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                right: 8,
-                                zIndex: 10,
-                                bgcolor: 'rgba(30, 30, 30, 0.8)',
-                                '&:hover': { bgcolor: 'action.hover' }
-                              }}
-                            >
-                              <MoreVertIcon fontSize="small" />
-                            </IconButton>
-                          </CardContent>
-                        </CardActionArea>
+                            </CardContent>
+                          </CardActionArea>
+                          <IconButton
+                            aria-label="game-options"
+                            size="small"
+                            onClick={(e) => handleGameMenuOpen(e, game.id)}
+                            sx={{ 
+                              position: 'absolute', 
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              right: 8,
+                              zIndex: 10,
+                              bgcolor: 'rgba(30, 30, 30, 0.8)',
+                              '&:hover': { bgcolor: 'action.hover' }
+                            }}
+                          >
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </MotionCard>
                     ))}
                   </Stack>
@@ -341,39 +339,37 @@ const Home = () => {
                         sx={{ 
                           borderRadius: 2, 
                           position: 'relative',
-                          cursor: 'pointer',
                           transition: 'transform 0.2s ease',
                           '&:hover': {
                             transform: 'scale(1.02)'
                           }
                         }}
-                        onClick={() => navigate(`/game/${game.id}`)}
                       >
-                        <CardContent sx={{ position: 'relative', pr: 8 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Box>
-                              <Typography variant="subtitle1" fontWeight="medium">
-                                {game.type} Game
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {formatDate(game.created_at)}
-                              </Typography>
-                            </Box>
-                            <Chip 
-                              icon={<EmojiEventsIcon fontSize="small" />}
-                              label="COMPLETED"
-                              color="success"
-                              size="small"
-                            />
-                          </Box>
+                        <Box sx={{ position: 'relative' }}>
+                          <CardActionArea onClick={() => navigate(`/game/${game.id}`)}>
+                            <CardContent sx={{ pr: 8 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box>
+                                  <Typography variant="subtitle1" fontWeight="medium">
+                                    {game.type} Game
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {formatDate(game.created_at)}
+                                  </Typography>
+                                </Box>
+                                <Chip 
+                                  icon={<EmojiEventsIcon fontSize="small" />}
+                                  label="COMPLETED"
+                                  color="success"
+                                  size="small"
+                                />
+                              </Box>
+                            </CardContent>
+                          </CardActionArea>
                           <IconButton
                             aria-label="game-options"
                             size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              handleGameMenuOpen(e, game.id);
-                            }}
+                            onClick={(e) => handleGameMenuOpen(e, game.id)}
                             sx={{ 
                               position: 'absolute', 
                               top: '50%',
@@ -386,7 +382,7 @@ const Home = () => {
                           >
                             <MoreVertIcon fontSize="small" />
                           </IconButton>
-                        </CardContent>
+                        </Box>
                       </Card>
                     ))}
                   </Stack>

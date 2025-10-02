@@ -1,6 +1,10 @@
 -- Function to delete a friend and all their associated data
 CREATE OR REPLACE FUNCTION delete_friend_and_data(friend_id UUID, creator_user_id UUID)
-RETURNS JSON AS $$
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   result JSON;
   friend_record RECORD;
@@ -85,4 +89,4 @@ EXCEPTION WHEN OTHERS THEN
   
   RETURN result;
 END;
-$$ LANGUAGE plpgsql; 
+$$; 
