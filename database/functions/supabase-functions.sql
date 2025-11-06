@@ -498,6 +498,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   suggestion TEXT[];
+  after_t20 INTEGER;
 BEGIN
   -- Only provide suggestions for valid checkout scores (170 or less)
   IF remaining_score > 170 OR remaining_score <= 0 THEN
@@ -551,26 +552,26 @@ BEGIN
     WHEN 121 THEN suggestion := ARRAY['T20', 'T11', 'D14'];
     WHEN 120 THEN suggestion := ARRAY['T20', 'S20', 'D20'];
     WHEN 119 THEN suggestion := ARRAY['T19', 'T12', 'D13'];
-    WHEN 118 THEN suggestion := ARRAY['T20', '18', 'D20'];
-    WHEN 117 THEN suggestion := ARRAY['T20', '17', 'D20'];
-    WHEN 116 THEN suggestion := ARRAY['T20', '16', 'D20'];
-    WHEN 115 THEN suggestion := ARRAY['T20', '15', 'D20'];
-    WHEN 114 THEN suggestion := ARRAY['T20', '14', 'D20'];
-    WHEN 113 THEN suggestion := ARRAY['T20', '13', 'D20'];
-    WHEN 112 THEN suggestion := ARRAY['T20', '12', 'D20'];
-    WHEN 111 THEN suggestion := ARRAY['T20', '11', 'D20'];
-    WHEN 110 THEN suggestion := ARRAY['T20', '10', 'D20'];
-    WHEN 109 THEN suggestion := ARRAY['T20', '9', 'D20'];
-    WHEN 108 THEN suggestion := ARRAY['T20', '8', 'D20'];
-    WHEN 107 THEN suggestion := ARRAY['T19', '10', 'D20'];
-    WHEN 106 THEN suggestion := ARRAY['T20', '6', 'D20'];
-    WHEN 105 THEN suggestion := ARRAY['T20', '5', 'D20'];
-    WHEN 104 THEN suggestion := ARRAY['T20', '4', 'D20'];
-    WHEN 103 THEN suggestion := ARRAY['T20', '3', 'D20'];
-    WHEN 102 THEN suggestion := ARRAY['T20', '2', 'D20'];
-    WHEN 101 THEN suggestion := ARRAY['T20', '1', 'D20'];
+    WHEN 118 THEN suggestion := ARRAY['T20', 'S18', 'D20'];
+    WHEN 117 THEN suggestion := ARRAY['T20', 'S17', 'D20'];
+    WHEN 116 THEN suggestion := ARRAY['T20', 'S16', 'D20'];
+    WHEN 115 THEN suggestion := ARRAY['T20', 'S15', 'D20'];
+    WHEN 114 THEN suggestion := ARRAY['T20', 'S14', 'D20'];
+    WHEN 113 THEN suggestion := ARRAY['T20', 'S13', 'D20'];
+    WHEN 112 THEN suggestion := ARRAY['T20', 'S12', 'D20'];
+    WHEN 111 THEN suggestion := ARRAY['T20', 'S11', 'D20'];
+    WHEN 110 THEN suggestion := ARRAY['T20', 'S10', 'D20'];
+    WHEN 109 THEN suggestion := ARRAY['T20', 'S9', 'D20'];
+    WHEN 108 THEN suggestion := ARRAY['T20', 'S8', 'D20'];
+    WHEN 107 THEN suggestion := ARRAY['T19', 'S10', 'D20'];
+    WHEN 106 THEN suggestion := ARRAY['T20', 'S6', 'D20'];
+    WHEN 105 THEN suggestion := ARRAY['T20', 'S5', 'D20'];
+    WHEN 104 THEN suggestion := ARRAY['T18', 'S10', 'D20'];
+    WHEN 103 THEN suggestion := ARRAY['T19', 'S6', 'D20'];
+    WHEN 102 THEN suggestion := ARRAY['T20', 'S10', 'D16'];
+    WHEN 101 THEN suggestion := ARRAY['T17', 'S10', 'D20'];
     WHEN 100 THEN suggestion := ARRAY['T20', 'D20'];
-    WHEN 99 THEN suggestion := ARRAY['T19', '10', 'D16'];
+    WHEN 99 THEN suggestion := ARRAY['T19', 'S10', 'D16'];
     WHEN 98 THEN suggestion := ARRAY['T20', 'D19'];
     WHEN 97 THEN suggestion := ARRAY['T19', 'D20'];
     WHEN 96 THEN suggestion := ARRAY['T20', 'D18'];
@@ -619,7 +620,7 @@ BEGIN
     WHEN 53 THEN suggestion := ARRAY['T3', 'D14'];
     WHEN 52 THEN suggestion := ARRAY['T2', 'D14'];
     WHEN 51 THEN suggestion := ARRAY['T1', 'D14'];
-    WHEN 50 THEN suggestion := ARRAY['D14'];
+    WHEN 50 THEN suggestion := ARRAY['Bull'];
     WHEN 49 THEN suggestion := ARRAY['T19', 'D5'];
     WHEN 48 THEN suggestion := ARRAY['T18', 'D10'];
     WHEN 47 THEN suggestion := ARRAY['T17', 'D10'];
@@ -660,16 +661,39 @@ BEGIN
     WHEN 12 THEN suggestion := ARRAY['T2', 'D6'];
     WHEN 11 THEN suggestion := ARRAY['T1', 'D6'];
     WHEN 10 THEN suggestion := ARRAY['D6'];
-    WHEN 9 THEN suggestion := ARRAY['T19', 'D0'];
-    WHEN 8 THEN suggestion := ARRAY['T18', 'D2'];
-    WHEN 7 THEN suggestion := ARRAY['T17', 'D2'];
-    WHEN 6 THEN suggestion := ARRAY['T16', 'D2'];
-    WHEN 5 THEN suggestion := ARRAY['T15', 'D2'];
-    WHEN 4 THEN suggestion := ARRAY['T14', 'D2'];
-    WHEN 3 THEN suggestion := ARRAY['T13', 'D2'];
-    WHEN 2 THEN suggestion := ARRAY['T12', 'D2'];
-    WHEN 1 THEN suggestion := ARRAY['T11', 'D2'];
-    WHEN 0 THEN suggestion := ARRAY['Bull'];
+    WHEN 9 THEN suggestion := ARRAY['S1', 'D4'];
+    WHEN 8 THEN suggestion := ARRAY['D4'];
+    WHEN 7 THEN suggestion := ARRAY['S3', 'D2'];
+    WHEN 6 THEN suggestion := ARRAY['D3'];
+    WHEN 5 THEN suggestion := ARRAY['S1', 'D2'];
+    WHEN 4 THEN suggestion := ARRAY['D2'];
+    WHEN 3 THEN suggestion := ARRAY['S1', 'D1'];
+    WHEN 2 THEN suggestion := ARRAY['D1'];
+    ELSE
+      -- Fallback for any uncovered scores: try to find a simple double finish
+      IF remaining_score <= 40 AND remaining_score % 2 = 0 THEN
+        suggestion := ARRAY['D' || (remaining_score / 2)::TEXT];
+      ELSIF remaining_score % 2 = 1 AND remaining_score > 1 THEN
+        -- Odd score: need single + double
+        suggestion := ARRAY['S1', 'D' || ((remaining_score - 1) / 2)::TEXT];
+      ELSE
+        -- Complex checkout: use T20 and calculate remainder
+        after_t20 := remaining_score - 60;
+        IF after_t20 > 0 AND after_t20 <= 40 AND after_t20 % 2 = 0 THEN
+          suggestion := ARRAY['T20', 'D' || (after_t20 / 2)::TEXT];
+        ELSIF after_t20 > 0 AND after_t20 <= 20 THEN
+          suggestion := ARRAY['T20', 'S' || after_t20::TEXT, 'D20'];
+        ELSE
+          -- Last resort: return a generic suggestion
+          after_t20 := remaining_score - 120;
+          IF after_t20 > 0 AND after_t20 <= 40 AND after_t20 % 2 = 0 THEN
+            suggestion := ARRAY['T20', 'T20', 'D' || (after_t20 / 2)::TEXT];
+          ELSE
+            -- Ultimate fallback
+            suggestion := ARRAY['T20', 'T19', 'D' || ((remaining_score - 117) / 2)::TEXT];
+          END IF;
+        END IF;
+      END IF;
   END CASE;
   
   RETURN suggestion;
