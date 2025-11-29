@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Box, Container, Typography, Button, Avatar, Divider, List, ListItem, ListItemText, Switch, Card, CardContent } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUI } from '@/contexts/UIContext';

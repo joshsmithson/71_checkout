@@ -42,7 +42,7 @@ const Celebration = ({ open, onClose }: CelebrationProps) => {
   const initialCaller = useMemo(() => {
     return CALLERS[Math.floor(Math.random() * CALLERS.length)];
   }, []);
-  const [caller, setCaller] = useState(initialCaller);
+  const [caller] = useState(initialCaller);
   const [answered, setAnswered] = useState(false);
   const ringingSoundRef = useRef<{ play: () => void; pause: () => void } | null>(null);
   const celebrationSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -56,7 +56,6 @@ const Celebration = ({ open, onClose }: CelebrationProps) => {
   useEffect(() => {
     // Create audio contexts and oscillators instead of audio elements
     let ringingContext: AudioContext | null = null;
-    let celebrationContext: AudioContext | null = null;
     
     if (isSoundEnabled) {
       try {
@@ -186,7 +185,7 @@ const Celebration = ({ open, onClose }: CelebrationProps) => {
             }, 800);
           }, 200);
         }, 200);
-      } catch (e) {
+      } catch {
         console.log("Audio not supported for celebration");
         // If sound is disabled or fails, still mark as finished after a delay
         setTimeout(() => setCelebrationFinished(true), 2000);

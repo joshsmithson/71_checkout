@@ -1,13 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
-import { 
-  Box, 
-  Button, 
-  Grid, 
-  Paper, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Box,
+  Button,
+  Grid,
+  Paper,
   Typography,
   IconButton,
   Chip,
-  Stack,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -20,10 +19,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import PublishIcon from '@mui/icons-material/Publish';
 import CelebrationIcon from '@mui/icons-material/Celebration';
 import { useUI } from '@/contexts/UIContext';
-
-// Create motion components using the recommended API
-const MotionButton = motion.create(Button);
-const MotionChip = motion.create(Chip);
 
 interface ScoreEntryProps {
   currentPlayerScore: number;
@@ -47,7 +42,7 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
     if (isSoundEnabled) {
       try {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      } catch (e) {
+      } catch {
         console.log("Audio context not supported");
       }
     }
@@ -88,7 +83,6 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
         console.error("Error resetting score:", error);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dartScores]); // Remove onScoreSubmit from dependencies to prevent potential loops
 
   // Handle number button press - now with multiplier first approach
@@ -145,11 +139,11 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
             oscillator.stop();
             oscillator.disconnect();
             gain.disconnect();
-          } catch (e) {
+          } catch {
             // Ignore oscillator stop errors
           }
         }, 100);
-      } catch (e) {
+      } catch {
         // Silently fail if audio is not supported
         console.log("Audio feedback unavailable");
       }
@@ -201,16 +195,6 @@ const ScoreEntry: React.FC<ScoreEntryProps> = ({
     setShowCelebration(false);
     onScoreSubmit(dartScores);
     setDartScores([]); // Reset dart scores after celebration
-  };
-
-  // Get multiplier text representation
-  const getMultiplierLabel = (multiplier: number) => {
-    switch(multiplier) {
-      case 1: return 'Single';
-      case 2: return 'Double';
-      case 3: return 'Triple';
-      default: return 'Single';
-    }
   };
 
   return (

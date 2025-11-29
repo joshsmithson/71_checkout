@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -93,7 +93,6 @@ const GameSetup = () => {
     
     loadFriends();
     // Only run on component mount and when user changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // Handle player selection
@@ -132,7 +131,7 @@ const GameSetup = () => {
         setSnackbarOpen(true);
         setAddingFriend(false);
       }
-    } catch (error) {
+    } catch {
       setSnackbarMessage('Failed to add friend');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
@@ -178,7 +177,7 @@ const GameSetup = () => {
         setSnackbarMessage(result?.message || 'Failed to delete friend');
         setSnackbarSeverity('error');
       }
-    } catch (error) {
+    } catch {
       setSnackbarMessage('Failed to delete friend');
       setSnackbarSeverity('error');
     } finally {
@@ -266,7 +265,7 @@ const GameSetup = () => {
 
       // Navigate to the created game
       navigate(`/game/${game.id}`);
-    } catch (error) {
+    } catch {
       setError('Failed to create game. Please try again.');
       setCreatingGame(false);
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Paper, BottomNavigation as MuiBottomNavigation, BottomNavigationAction } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -6,7 +6,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PersonIcon from '@mui/icons-material/Person';
 
-const StyledBottomNavigation = styled(Paper)(({ theme }) => ({
+const StyledBottomNavigation = styled(Paper)(() => ({
   position: 'fixed',
   bottom: 0,
   left: 0,

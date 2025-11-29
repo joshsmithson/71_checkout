@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Container, 
-  Box, 
-  Typography, 
-  CircularProgress, 
-  Card, 
-  CardContent, 
+import {
+  Container,
+  Box,
+  Typography,
+  CircularProgress,
+  Card,
+  CardContent,
   Grid,
   Button,
   IconButton,
@@ -18,7 +18,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField,
   Divider,
   Chip,
   Stack
@@ -212,33 +211,6 @@ const Rivals = () => {
         // The rivalry stats from getRivalryStats already include this information
         currentStreak = 0;
         streakHolder = null;
-        
-        if (false) {
-          // This code is disabled as we don't have winner_id on games table
-          // Streak calculation is handled via rivalry stats instead
-          for (const game of games) {
-            const isPlayer1Winner = false;
-            const isPlayer2Winner = false;
-            
-            if (isPlayer1Winner || isPlayer2Winner) {
-              const currentWinner = isPlayer1Winner ? 'player1' : 'player2';
-              
-              // First winner starts the streak
-              if (streakHolder === null) {
-                streakHolder = currentWinner;
-                currentStreak = 1;
-              } 
-              // Same player won again, increment streak
-              else if (streakHolder === currentWinner) {
-                currentStreak++;
-              } 
-              // Different player won, streak ends
-              else {
-                break;
-              }
-            }
-          }
-        }
       }
       
       // Calculate average per dart

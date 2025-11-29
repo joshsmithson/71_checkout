@@ -1,3 +1,4 @@
+import React from 'react';
 import { Box, Paper, Typography, LinearProgress, Chip, Grid, Avatar } from '@mui/material';
 import { motion } from 'framer-motion';
 import PersonIcon from '@mui/icons-material/Person';

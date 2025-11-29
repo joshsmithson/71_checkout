@@ -1,4 +1,4 @@
-import { Box, Button, Container, Typography, Paper, Link, CircularProgress, Alert, Snackbar } from '@mui/material';
+import { Box, Button, Container, Typography, Paper, CircularProgress, Alert, Snackbar } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import GoogleIcon from '@mui/icons-material/Google';

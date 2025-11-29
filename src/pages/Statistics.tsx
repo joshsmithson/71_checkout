@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Tabs, 
-  Tab, 
-  CircularProgress, 
+import {
+  Box,
+  Container,
+  Typography,
+  Tabs,
+  Tab,
+  CircularProgress,
   Divider,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Grid,
-  useTheme,
   Button,
   Alert,
   Dialog,
@@ -31,8 +30,6 @@ import SportsCricketIcon from '@mui/icons-material/SportsCricket';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import ScoreboardIcon from '@mui/icons-material/Scoreboard';
 import SpeedIcon from '@mui/icons-material/Speed';
-import GavelIcon from '@mui/icons-material/Gavel';
-import TargetIcon from '@mui/icons-material/GpsFixed';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -77,7 +74,6 @@ type GameHistoryItem = {
 type TimeRange = 'week' | 'month';
 
 const Statistics = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { 
@@ -105,7 +101,6 @@ const Statistics = () => {
   const [statistics, setStatistics] = useState<StatisticData[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [recentGames, setRecentGames] = useState<GameHistoryItem[]>([]);
-  const [loadingGames, setLoadingGames] = useState(false);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [scoreDistribution, setScoreDistribution] = useState<any[]>([]);
@@ -175,8 +170,7 @@ const Statistics = () => {
   
   const loadRecentGames = async () => {
     if (!user) return;
-    
-    setLoadingGames(true);
+
     try {
       const games = await getGames();
       if (games) {
@@ -217,8 +211,6 @@ const Statistics = () => {
       }
     } catch (err) {
       console.error('Error loading recent games:', err);
-    } finally {
-      setLoadingGames(false);
     }
   };
   

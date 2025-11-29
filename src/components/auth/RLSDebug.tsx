@@ -63,7 +63,7 @@ const RLSDebug = () => {
       
       // Try to list a few tables to check RLS
       for (const table of VALID_TABLES) {
-        const { data, error: tableError } = await supabase
+        const { error: tableError } = await supabase
           .from(table)
           .select('count(*)')
           .limit(1);

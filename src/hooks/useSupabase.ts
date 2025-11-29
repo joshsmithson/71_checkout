@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/utils/supabase';
 import { Database } from '@/types/supabase';
-import { ATWGameType, ATWProgress } from '@/types/around-the-world';
+import { ATWGameType } from '@/types/around-the-world';
 
 type Tables = Database['public']['Tables'];
 type GameRow = Tables['games']['Row'];
@@ -113,22 +113,22 @@ export const useSupabase = () => {
       }
       
       // Load turns to later update statistics
-      const { data: turns, error: turnsError } = await supabase
+      const { error: turnsError } = await supabase
         .from('turns')
         .select()
         .eq('game_id', gameId);
-      
+
       if (turnsError) {
         console.error('Error loading turns:', turnsError);
         // Continue with deletion even if we can't load turns
       }
-      
+
       // Load game players
-      const { data: gamePlayers, error: playersError } = await supabase
+      const { error: playersError } = await supabase
         .from('game_players')
         .select()
         .eq('game_id', gameId);
-      
+
       if (playersError) {
         console.error('Error loading game players:', playersError);
         // Continue with deletion even if we can't load players
@@ -138,7 +138,7 @@ export const useSupabase = () => {
       if (game.status === 'completed') {
         try {
           // Call the Supabase function to recalculate statistics
-          const { data, error } = await supabase.rpc('recalculate_statistics_after_game_deletion', {
+          const { error } = await supabase.rpc('recalculate_statistics_after_game_deletion', {
             game_id: gameId
           });
           
@@ -553,7 +553,7 @@ export const useSupabase = () => {
       // Format the data for charts and sort by date
       return Object.entries(weeklyData)
         .sort(([a], [b]) => a.localeCompare(b)) // Sort by the ISO date key
-        .map(([weekKey, data]) => {
+        .map(([_weekKey, data]) => {
           const gamesPlayed = data.games.size;
           return {
             date: data.date, // Now shows "Jan 15" instead of "2025-W03"
@@ -779,10 +779,9 @@ export const useSupabase = () => {
     // Check format for S/D/T + number
     const prefixMatch = dartString.match(/^([SDT])(\d+)$/);
     if (!prefixMatch) return false;
-    
-    const prefix = prefixMatch[1]; // S, D, or T
+
     const value = parseInt(prefixMatch[2]);
-    
+
     // Validate the number is between 1 and 20
     return value >= 1 && value <= 20;
   };
@@ -1022,10 +1021,6 @@ export const useSupabase = () => {
       return suggestions;
     }
     
-    // Maximum valid double in darts is D20 (40 points)
-    // The only valid finish above 40 is the bullseye (50)
-    const maxValidDouble = 20;
-    
     // Check for finishes with bullseye
     if (remainingScore > 50) {
       // Try to use singles or doubles with bullseye
@@ -1259,10 +1254,6 @@ export const useSupabase = () => {
       if (!isValidCheckout) {
         return fallbackSuggestions;
       }
-      
-      // If the database suggestion is valid but differs from our fallback,
-      // add it as an additional option
-      const dbCheckout = [dbSuggestion];
       
       // Check if the database suggestion is already in our fallbacks
       const isDuplicate = fallbackSuggestions.some(suggestion => 

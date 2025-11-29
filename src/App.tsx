@@ -1,4 +1,4 @@
-import { useState, useEffect, Component, ErrorInfo } from 'react';
+import React, { useState, useEffect, Component, ErrorInfo } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline, Box, Typography, Button } from '@mui/material';
 import { AnimatePresence } from 'framer-motion';

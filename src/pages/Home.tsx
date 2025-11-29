@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Button, 
-  Card, 
-  CardContent, 
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Card,
+  CardContent,
   CardActionArea,
   Grid,
-  Divider,
   CircularProgress,
   Stack,
   Chip,
@@ -31,7 +30,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
 import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import HistoryIcon from '@mui/icons-material/History';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -119,7 +117,6 @@ const Home = () => {
   useEffect(() => {
     loadGames();
     // Only run once on component mount and when user changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const handleNewGame = () => {

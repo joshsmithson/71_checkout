@@ -1,5 +1,5 @@
 import React from 'react';
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 import { Card, CardContent, Typography, Divider, Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
@@ -57,7 +57,7 @@ const WeeklyWinsChart: React.FC<WeeklyWinsChartProps> = ({
 
   // Custom label formatter for bars
   const renderBarLabel = (props: any) => {
-    const { x, y, width, height, value } = props;
+    const { x, y, width, value } = props;
     if (value === 0) return null;
     return (
       <text 

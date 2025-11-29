@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Button, 
-  Card, 
-  CardContent,
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
   CircularProgress,
   Alert,
   Paper,
@@ -25,10 +23,10 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useUI } from '@/contexts/UIContext';
-import { motion } from 'framer-motion';
 import ATWScoreEntry from '@/components/game/ATWScoreEntry';
 import ATWProgressTracker from '@/components/game/ATWProgressTracker';
 import Celebration from '@/components/game/Celebration';
+import ConfirmationDialog from '@/components/game/ConfirmationDialog';
 import HistoryIcon from '@mui/icons-material/History';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -63,25 +61,21 @@ interface Turn {
   checkout: boolean;
 }
 
-// Create motion components using the recommended API
-const MotionCard = motion.create(Card);
-
 const ActiveATWGame = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { showCelebration } = useUI();
-  const { 
-    getGameById, 
-    getGamePlayers, 
-    getTurns, 
+  useUI();
+  const {
+    getGameById,
+    getGamePlayers,
+    getTurns,
     updateGameStatus,
     setGameWinner,
     deleteGame,
     getATWProgress,
     updateATWProgress,
     addATWTurn,
-    loading,
     getFriends
   } = useSupabase();
 
@@ -240,7 +234,6 @@ const ActiveATWGame = () => {
 
     loadGameData();
     // Only run when game id changes or user changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.id]);
 
   // Handle score submission for ATW
@@ -719,31 +712,16 @@ const ActiveATWGame = () => {
         onClose={() => setShow180Celebration(false)} 
       />
 
-      {/* Dialog confirmations - same as regular game */}
-      {/* ... (keeping all the existing dialog components from ActiveGame) ... */}
-      
       {/* Pause Game Confirmation */}
-      <Dialog
+      <ConfirmationDialog
         open={confirmPauseGame}
         onClose={() => setConfirmPauseGame(false)}
-      >
-        <DialogTitle>Pause Game</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Do you want to pause this game? You can resume it later from the home screen.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmPauseGame(false)}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            onClick={handlePauseGame}
-          >
-            Pause Game
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handlePauseGame}
+        title="Pause Game"
+        message="Do you want to pause this game? You can resume it later from the home screen."
+        confirmText="Pause Game"
+        confirmIcon={<PauseIcon />}
+      />
 
       {/* Game Completed Dialog */}
       <Dialog
@@ -772,62 +750,40 @@ const ActiveATWGame = () => {
       </Dialog>
 
       {/* Exit Game Confirmation */}
-      <Dialog
+      <ConfirmationDialog
         open={confirmExitGame}
         onClose={() => setConfirmExitGame(false)}
-      >
-        <DialogTitle>Exit Game?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Do you want to exit this game? Your progress will be saved and you can return later.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmExitGame(false)}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            onClick={handleExitToHome}
-          >
-            Exit Game
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleExitToHome}
+        title="Exit Game?"
+        message="Do you want to exit this game? Your progress will be saved and you can return later."
+        confirmText="Exit Game"
+        confirmIcon={<HomeIcon />}
+      />
 
       {/* Delete Game Confirmation */}
-      <Dialog
+      <ConfirmationDialog
         open={confirmDeleteGame}
         onClose={() => setConfirmDeleteGame(false)}
-      >
-        <DialogTitle>Delete Game?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete this game? This action cannot be undone and all game data will be permanently removed.
-          </Typography>
-          {isCompleted && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              This is a completed game. Deleting it will remove it from your game history and may affect your statistics.
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setConfirmDeleteGame(false)} 
-            disabled={isDeleting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            color="error" 
-            onClick={handleDeleteGame}
-            disabled={isDeleting}
-            startIcon={isDeleting ? <CircularProgress size={20} /> : <DeleteIcon />}
-          >
-            {isDeleting ? 'Deleting...' : 'Delete Game'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleDeleteGame}
+        title="Delete Game?"
+        message={
+          <>
+            <Typography>
+              Are you sure you want to delete this game? This action cannot be undone and all game data will be permanently removed.
+            </Typography>
+            {isCompleted && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                This is a completed game. Deleting it will remove it from your game history and may affect your statistics.
+              </Alert>
+            )}
+          </>
+        }
+        confirmText="Delete Game"
+        confirmColor="error"
+        confirmIcon={<DeleteIcon />}
+        isLoading={isDeleting}
+        loadingText="Deleting..."
+      />
     </Container>
   );
 };

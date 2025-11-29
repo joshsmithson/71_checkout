@@ -1,17 +1,14 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Button, 
-  Card, 
-  CardContent,
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
   CircularProgress,
   Alert,
   Paper,
   Stack,
-  Divider,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -26,9 +23,12 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useUI } from '@/contexts/UIContext';
-import { motion, AnimatePresence } from 'framer-motion';
 import ScoreEntry from '@/components/game/ScoreEntry';
 import Celebration from '@/components/game/Celebration';
+import TurnHistoryDialog from '@/components/game/TurnHistoryDialog';
+import ConfirmationDialog from '@/components/game/ConfirmationDialog';
+import CheckoutSuggestion from '@/components/game/CheckoutSuggestion';
+import { Player, Turn, RevertTurnState } from '@/types/game';
 import HistoryIcon from '@mui/icons-material/History';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -37,45 +37,21 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UndoIcon from '@mui/icons-material/Undo';
 
-// Define types
-interface Player {
-  id: string;
-  type: 'user' | 'friend';
-  name: string;
-  order: number;
-  score: number;
-  startingScore: number;
-}
-
-interface Turn {
-  id: string;
-  player_id: string;
-  player_type: string;
-  game_id: string;
-  turn_number: number;
-  scores: number[];
-  remaining: number;
-  checkout: boolean;
-}
-
-// Create motion components using the recommended API
-const MotionCard = motion.create(Card);
 
 const ActiveGame = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { showCelebration } = useUI();
-  const { 
-    getGameById, 
-    getGamePlayers, 
-    getTurns, 
+  useUI();
+  const {
+    getGameById,
+    getGamePlayers,
+    getTurns,
     getCheckoutSuggestion,
     addTurn,
     updateGameStatus,
     setGameWinner,
     deleteGame,
-    loading,
     getFriends,
     revertToTurn
   } = useSupabase();
@@ -98,7 +74,7 @@ const ActiveGame = () => {
   const [confirmDeleteGame, setConfirmDeleteGame] = useState(false);
   const [isSubmittingScore, setIsSubmittingScore] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [confirmRevertTurn, setConfirmRevertTurn] = useState<{open: boolean, turnId: string, turnInfo: string, affectedCount: number} | null>(null);
+  const [confirmRevertTurn, setConfirmRevertTurn] = useState<RevertTurnState | null>(null);
   const [isReverting, setIsReverting] = useState(false);
   
   // Game options menu
@@ -304,7 +280,6 @@ const ActiveGame = () => {
   useEffect(() => {
     loadGameData();
     // Only run when game id changes or user changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.id]);
 
   // Reset temporary score when changing to a new player
@@ -883,93 +858,12 @@ const ActiveGame = () => {
         </Grid>
       </Paper>
       
-      {/* Checkout Suggestion - Smooth animation */}
-      <AnimatePresence mode="wait">
-        {currentPlayer && currentPlayer.score <= 170 && currentPlayer.score > 1 && !isCompleted && !isPaused && checkoutSuggestion && checkoutSuggestion.length > 0 && (
-          <motion.div
-            key="checkout-suggestion"
-            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-            animate={{ opacity: 1, height: 'auto', marginBottom: 8 }}
-            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-            transition={{ 
-              duration: 0.25,
-              ease: 'easeInOut'
-            }}
-            style={{ overflow: 'hidden' }}
-          >
-            <Paper 
-              sx={{ 
-                p: 1.25, 
-                bgcolor: 'grey.900',
-                color: 'grey.200', 
-                borderRadius: '12px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                border: 1,
-                borderColor: 'primary.dark'
-              }}
-            >
-              <Grid container alignItems="center" spacing={1}>
-                <Grid item xs={4}>
-                  <Typography sx={{ color: 'grey.300', fontWeight: 'medium', fontSize: '0.85rem' }}>
-                    Checkout Path{checkoutSuggestion.length > 1 ? 's' : ''}:
-                  </Typography>
-                  <Typography color="primary.main" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                    {currentPlayer.score}
-                  </Typography>
-                </Grid>
-                <Grid item xs={8}>
-                  {checkoutSuggestion.map((suggestion, suggestionIndex) => (
-                    <Box key={suggestionIndex} sx={{ 
-                      display: 'flex', 
-                      justifyContent: 'flex-start', 
-                      gap: 0.5,
-                      flexWrap: 'wrap',
-                      mt: suggestionIndex > 0 ? 1 : 0,
-                      mb: 0.5
-                    }}>
-                      {suggestionIndex > 0 && (
-                        <Typography variant="caption" color="grey.500" sx={{ width: '100%', mb: 0.5 }}>
-                          Alternative:
-                        </Typography>
-                      )}
-                      {suggestion.map((dart, dartIndex) => {
-                        // Use different colors based on dart type (T/D/S)
-                        const isDartTriple = dart.startsWith('T');
-                        const isDartDouble = dart.startsWith('D');
-                        const isBull = dart === 'Bull';
-                        
-                        return (
-                          <Chip 
-                            key={dartIndex} 
-                            label={dart} 
-                            variant="filled" 
-                            color={isDartTriple ? "error" : isDartDouble ? "primary" : "default"}
-                            size="medium"
-                            sx={{ 
-                              fontWeight: 'bold',
-                              border: isDartTriple || isDartDouble || isBull ? 1 : 0,
-                              borderColor: isBull ? 'error.main' : 'transparent',
-                              bgcolor: isBull ? 'background.paper' : undefined,
-                              color: isBull ? 'error.main' : undefined,
-                              fontSize: '0.85rem',
-                              mb: 0.5
-                            }}
-                          />
-                        );
-                      })}
-                    </Box>
-                  ))}
-                  {checkoutSuggestion.length > 0 && (
-                    <Typography variant="caption" color="grey.500" sx={{ textAlign: 'center', display: 'block', mt: 0.5 }}>
-                      Suggested checkout path{checkoutSuggestion.length > 1 ? 's' : ''}
-                    </Typography>
-                  )}
-                </Grid>
-              </Grid>
-            </Paper>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Checkout Suggestion */}
+      <CheckoutSuggestion
+        score={currentPlayer?.score || 0}
+        suggestion={checkoutSuggestion}
+        isVisible={!isCompleted && !isPaused && currentPlayer !== null}
+      />
 
       {!isCompleted && !isPaused ? (
         <>
@@ -1056,254 +950,14 @@ const ActiveGame = () => {
       )}
 
       {/* Turn History Dialog */}
-      <Dialog 
-        open={showTurnHistory} 
+      <TurnHistoryDialog
+        open={showTurnHistory}
         onClose={() => setShowTurnHistory(false)}
-        fullWidth
-        maxWidth="md"
-        key={`turn-history-${turns.length}-${turns.map(t => t.id).join('-')}`} // Force remount when turns change
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Turn History</Typography>
-            <Chip 
-              label={`${turns.length} Turn${turns.length !== 1 ? 's' : ''}`} 
-              size="small" 
-              color="primary"
-              variant="outlined"
-            />
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {turns.length === 0 ? (
-            <Typography variant="body1" textAlign="center" sx={{ py: 4 }}>
-              No turns recorded yet
-            </Typography>
-          ) : (
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              {turns.map((turn, index) => {
-                const player = players.find(p => p.id === turn.player_id && p.type === turn.player_type);
-                const turnScore = turn.scores.reduce((sum, score) => sum + score, 0);
-                const affectedTurns = turns.length - index - 1;
-                
-                // Calculate what each player's score will be after reverting to this turn
-                // When reverting to a turn, we keep all turns up to and including that turn
-                // Each player's score will be their remaining score from their last turn up to this point
-                const scoresAfterRevert: { [key: string]: number } = {};
-                
-                // First, set all players to their starting scores
-                players.forEach(p => {
-                  scoresAfterRevert[`${p.id}-${p.type}`] = p.startingScore;
-                });
-                
-                // Then, apply all turns up to and including the current turn index
-                // This simulates what the scores will be after reverting
-                for (let i = 0; i <= index; i++) {
-                  const t = turns[i];
-                  const playerKey = `${t.player_id}-${t.player_type}`;
-                  // Update the player's score to the remaining score from this turn
-                  scoresAfterRevert[playerKey] = t.remaining;
-                }
-                
-                const isBust = turn.scores.length === 1 && turn.scores[0] === 0;
-                const isCheckout = turn.checkout;
-                const is180 = turnScore === 180 && turn.scores.length === 3;
-                
-                return (
-                  <Paper 
-                    key={index} 
-                    elevation={affectedTurns === 0 ? 2 : 0}
-                    sx={{ 
-                      p: 2,
-                      border: affectedTurns === 0 ? 2 : 1,
-                      borderColor: affectedTurns === 0 ? 'primary.main' : 'divider',
-                      borderRadius: 2,
-                      bgcolor: affectedTurns === 0 ? 'action.selected' : 'background.paper',
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        bgcolor: 'action.hover',
-                        borderColor: 'primary.light'
-                      }
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <Chip 
-                            label={`Turn ${turn.turn_number}`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            sx={{ fontWeight: 'bold' }}
-                          />
-                          <Typography variant="subtitle1" fontWeight="bold">
-                            {player?.name || 'Unknown'}
-                          </Typography>
-                          {isCheckout && (
-                            <Chip 
-                              label="CHECKOUT" 
-                              size="small" 
-                              color="success" 
-                              sx={{ fontWeight: 'bold' }}
-                            />
-                          )}
-                          {is180 && (
-                            <Chip 
-                              label="180" 
-                              size="small" 
-                              color="error" 
-                              sx={{ fontWeight: 'bold' }}
-                            />
-                          )}
-                          {isBust && (
-                            <Chip 
-                              label="BUST" 
-                              size="small" 
-                              color="warning" 
-                              sx={{ fontWeight: 'bold' }}
-                            />
-                          )}
-                        </Box>
-                        
-                        <Box sx={{ display: 'flex', gap: 2, mb: 1.5, flexWrap: 'wrap' }}>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
-                              Score
-                            </Typography>
-                            <Typography variant="body1" fontWeight="medium">
-                              {turn.scores.map((s, i) => (
-                                <span key={i}>
-                                  {s}
-                                  {i < turn.scores.length - 1 ? ' + ' : ''}
-                                </span>
-                              ))} = <strong>{turnScore}</strong>
-                            </Typography>
-                          </Box>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
-                              Remaining
-                            </Typography>
-                            <Typography 
-                              variant="body1" 
-                              fontWeight="bold"
-                              color={turn.remaining === 0 ? 'success.main' : turn.remaining <= 40 ? 'warning.main' : 'text.primary'}
-                            >
-                              {turn.remaining}
-                            </Typography>
-                          </Box>
-                        </Box>
-                        
-                        {affectedTurns > 0 && gameData?.status === 'active' && (
-                          <Box sx={{ 
-                            mt: 2, 
-                            pt: 2, 
-                            borderTop: 1, 
-                            borderColor: 'divider',
-                            bgcolor: 'warning.light',
-                            borderRadius: 1,
-                            p: 1.5
-                          }}>
-                            <Typography variant="caption" fontWeight="bold" color="warning.dark" sx={{ display: 'block', mb: 1 }}>
-                              Reverting to this turn will:
-                            </Typography>
-                            <Box component="ul" sx={{ m: 0, pl: 2.5, mb: 1 }}>
-                              <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
-                                Remove <strong>{affectedTurns} subsequent turn{affectedTurns !== 1 ? 's' : ''}</strong>
-                              </Typography>
-                              <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
-                                Reset scores to:
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-                              {players.map(p => {
-                                const scoreAfter = scoresAfterRevert[`${p.id}-${p.type}`];
-                                const currentScore = p.score;
-                                const willChange = scoreAfter !== currentScore;
-                                
-                                return (
-                                  <Chip
-                                    key={`${p.id}-${p.type}`}
-                                    label={
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        <Typography variant="caption" fontWeight="bold">
-                                          {p.name}:
-                                        </Typography>
-                                        <Typography 
-                                          variant="caption" 
-                                          sx={{ 
-                                            textDecoration: willChange ? 'line-through' : 'none',
-                                            opacity: willChange ? 0.5 : 1
-                                          }}
-                                        >
-                                          {currentScore}
-                                        </Typography>
-                                        {willChange && (
-                                          <>
-                                            <Typography variant="caption">→</Typography>
-                                            <Typography variant="caption" fontWeight="bold" color="primary.main">
-                                              {scoreAfter}
-                                            </Typography>
-                                          </>
-                                        )}
-                                      </Box>
-                                    }
-                                    size="small"
-                                    variant={willChange ? "outlined" : "filled"}
-                                    color={willChange ? "primary" : "default"}
-                                    sx={{ 
-                                      height: 'auto',
-                                      py: 0.5,
-                                      '& .MuiChip-label': { px: 1 }
-                                    }}
-                                  />
-                                );
-                              })}
-                            </Box>
-                          </Box>
-                        )}
-                        
-                        {affectedTurns === 0 && (
-                          <Box sx={{ mt: 1.5 }}>
-                            <Chip 
-                              label="Current State" 
-                              size="small" 
-                              color="primary" 
-                              variant="filled"
-                            />
-                          </Box>
-                        )}
-                      </Box>
-                      
-                      {gameData?.status === 'active' && affectedTurns > 0 && (
-                        <IconButton
-                          size="medium"
-                          color="warning"
-                          onClick={() => handleRevertTurnClick(turn, index)}
-                          sx={{ 
-                            ml: 1,
-                            border: 1,
-                            borderColor: 'warning.main',
-                            '&:hover': {
-                              bgcolor: 'warning.light',
-                              borderColor: 'warning.dark'
-                            }
-                          }}
-                          title={`Revert to this turn`}
-                        >
-                          <UndoIcon />
-                        </IconButton>
-                      )}
-                    </Box>
-                  </Paper>
-                );
-              })}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowTurnHistory(false)} variant="outlined">Close</Button>
-        </DialogActions>
-      </Dialog>
+        turns={turns}
+        players={players}
+        gameStatus={gameData?.status || 'active'}
+        onRevertClick={handleRevertTurnClick}
+      />
 
       {/* 180 Celebration */}
       <Celebration 
@@ -1312,27 +966,15 @@ const ActiveGame = () => {
       />
 
       {/* Pause Game Confirmation */}
-      <Dialog
+      <ConfirmationDialog
         open={confirmPauseGame}
         onClose={() => setConfirmPauseGame(false)}
-      >
-        <DialogTitle>Pause Game</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Do you want to pause this game? You can resume it later from the home screen.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmPauseGame(false)}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            onClick={handlePauseGame}
-          >
-            Pause Game
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handlePauseGame}
+        title="Pause Game"
+        message="Do you want to pause this game? You can resume it later from the home screen."
+        confirmText="Pause Game"
+        confirmIcon={<PauseIcon />}
+      />
 
       {/* Game Completed Dialog */}
       <Dialog
@@ -1361,99 +1003,65 @@ const ActiveGame = () => {
       </Dialog>
 
       {/* Exit Game Confirmation */}
-      <Dialog
+      <ConfirmationDialog
         open={confirmExitGame}
         onClose={() => setConfirmExitGame(false)}
-      >
-        <DialogTitle>Exit Game?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Do you want to exit this game? Your progress will be saved and you can return later.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmExitGame(false)}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            onClick={handleExitToHome}
-          >
-            Exit Game
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleExitToHome}
+        title="Exit Game?"
+        message="Do you want to exit this game? Your progress will be saved and you can return later."
+        confirmText="Exit Game"
+        confirmIcon={<HomeIcon />}
+      />
 
       {/* Delete Game Confirmation */}
-      <Dialog
+      <ConfirmationDialog
         open={confirmDeleteGame}
         onClose={() => setConfirmDeleteGame(false)}
-      >
-        <DialogTitle>Delete Game?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete this game? This action cannot be undone and all game data will be permanently removed.
-          </Typography>
-          {isCompleted && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              This is a completed game. Deleting it will remove it from your game history and may affect your statistics.
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setConfirmDeleteGame(false)} 
-            disabled={isDeleting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            color="error" 
-            onClick={handleDeleteGame}
-            disabled={isDeleting}
-            startIcon={isDeleting ? <CircularProgress size={20} /> : <DeleteIcon />}
-          >
-            {isDeleting ? 'Deleting...' : 'Delete Game'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleDeleteGame}
+        title="Delete Game?"
+        message={
+          <>
+            <Typography>
+              Are you sure you want to delete this game? This action cannot be undone and all game data will be permanently removed.
+            </Typography>
+            {isCompleted && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                This is a completed game. Deleting it will remove it from your game history and may affect your statistics.
+              </Alert>
+            )}
+          </>
+        }
+        confirmText="Delete Game"
+        confirmColor="error"
+        confirmIcon={<DeleteIcon />}
+        isLoading={isDeleting}
+        loadingText="Deleting..."
+      />
 
       {/* Revert Turn Confirmation Dialog */}
-      <Dialog
+      <ConfirmationDialog
         open={confirmRevertTurn?.open || false}
         onClose={() => !isReverting && setConfirmRevertTurn(null)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Revert Turn</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" gutterBottom>
-            Are you sure you want to revert to <strong>{confirmRevertTurn?.turnInfo}</strong>?
-          </Typography>
-          {confirmRevertTurn && confirmRevertTurn.affectedCount > 0 && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              This will permanently remove <strong>{confirmRevertTurn.affectedCount}</strong> turn{confirmRevertTurn.affectedCount !== 1 ? 's' : ''} that came after this turn. This action cannot be undone.
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setConfirmRevertTurn(null)} 
-            disabled={isReverting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            color="warning" 
-            onClick={handleConfirmRevert}
-            disabled={isReverting}
-            startIcon={isReverting ? <CircularProgress size={20} /> : <UndoIcon />}
-          >
-            {isReverting ? 'Reverting...' : 'Revert Turn'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleConfirmRevert}
+        title="Revert Turn"
+        message={
+          <>
+            <Typography variant="body1" gutterBottom>
+              Are you sure you want to revert to <strong>{confirmRevertTurn?.turnInfo}</strong>?
+            </Typography>
+            {confirmRevertTurn && confirmRevertTurn.affectedCount > 0 && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                This will permanently remove <strong>{confirmRevertTurn.affectedCount}</strong> turn{confirmRevertTurn.affectedCount !== 1 ? 's' : ''} that came after this turn. This action cannot be undone.
+              </Alert>
+            )}
+          </>
+        }
+        confirmText="Revert Turn"
+        confirmColor="warning"
+        confirmIcon={<UndoIcon />}
+        isLoading={isReverting}
+        loadingText="Reverting..."
+      />
     </Container>
   );
 };
