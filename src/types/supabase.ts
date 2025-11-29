@@ -349,6 +349,55 @@ export interface Database {
           }
         ]
       }
+      killer_progress: {
+        Row: {
+          id: string
+          game_id: string
+          player_id: string
+          player_type: string
+          claimed_number: number | null
+          lives: number
+          max_lives: number
+          is_killer: boolean
+          is_eliminated: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          game_id: string
+          player_id: string
+          player_type: string
+          claimed_number?: number | null
+          lives?: number
+          max_lives: number
+          is_killer?: boolean
+          is_eliminated?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          game_id?: string
+          player_id?: string
+          player_type?: string
+          claimed_number?: number | null
+          lives?: number
+          max_lives?: number
+          is_killer?: boolean
+          is_eliminated?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "killer_progress_game_id_fkey"
+            columns: ["game_id"]
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

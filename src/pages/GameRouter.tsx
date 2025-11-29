@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom';
 import { Container, CircularProgress, Alert, Button } from '@mui/material';
 import { useSupabase } from '@/hooks/useSupabase';
 import { isATWGameType } from '@/types/around-the-world';
+import { isKillerGameType } from '@/types/killer';
 import ActiveGame from './ActiveGame';
 import ActiveATWGame from './ActiveATWGame';
+import ActiveKillerGame from './ActiveKillerGame';
 
 const GameRouter = () => {
   const { id } = useParams<{ id: string }>();
@@ -78,6 +80,8 @@ const GameRouter = () => {
   // Route to appropriate game component
   if (isATWGameType(gameType)) {
     return <ActiveATWGame />;
+  } else if (isKillerGameType(gameType)) {
+    return <ActiveKillerGame />;
   } else {
     return <ActiveGame />;
   }

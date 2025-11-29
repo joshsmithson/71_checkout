@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/utils/supabase';
 import { Database } from '@/types/supabase';
 import { ATWGameType } from '@/types/around-the-world';
+import { KillerGameType, getMaxLivesForGameType } from '@/types/killer';
 
 type Tables = Database['public']['Tables'];
 type GameRow = Tables['games']['Row'];
@@ -12,6 +13,7 @@ type FriendRow = Tables['friends']['Row'];
 type StatisticsRow = Tables['statistics']['Row'];
 type RivalRow = Tables['rivals']['Row'];
 type ATWProgressRow = Tables['atw_progress']['Row'];
+type KillerProgressRow = Tables['killer_progress']['Row'];
 
 export const useSupabase = () => {
   const { user } = useAuth();
@@ -1543,7 +1545,130 @@ export const useSupabase = () => {
         })
         .select()
         .single();
-      
+
+      return result;
+    });
+  };
+
+  // Killer game operations
+  const initializeKillerProgress = async (
+    gameId: string,
+    players: { playerId: string; playerType: 'user' | 'friend' }[],
+    gameType: KillerGameType
+  ): Promise<KillerProgressRow[] | null> => {
+    const maxLives = getMaxLivesForGameType(gameType);
+    const progressRecords = players.map(player => ({
+      game_id: gameId,
+      player_id: player.playerId,
+      player_type: player.playerType,
+      claimed_number: null,
+      lives: 0,
+      max_lives: maxLives,
+      is_killer: false,
+      is_eliminated: false
+    }));
+
+    return fetchData(async () => {
+      const result = await supabase
+        .from('killer_progress')
+        .insert(progressRecords)
+        .select();
+
+      return result;
+    });
+  };
+
+  const getKillerProgress = async (gameId: string): Promise<KillerProgressRow[] | null> => {
+    return fetchData(async () => {
+      const result = await supabase
+        .from('killer_progress')
+        .select()
+        .eq('game_id', gameId);
+
+      return result;
+    });
+  };
+
+  const claimKillerNumber = async (
+    gameId: string,
+    playerId: string,
+    playerType: 'user' | 'friend',
+    number: number,
+    multiplier: number
+  ): Promise<KillerProgressRow | null> => {
+    // Lives gained from claiming: Single=1, Double=2, Triple=3
+    const livesGained = multiplier;
+
+    return fetchData(async () => {
+      const result = await supabase
+        .from('killer_progress')
+        .update({
+          claimed_number: number,
+          lives: livesGained,
+          is_killer: livesGained >= 3,
+          updated_at: new Date().toISOString()
+        })
+        .eq('game_id', gameId)
+        .eq('player_id', playerId)
+        .eq('player_type', playerType)
+        .select()
+        .single();
+
+      return result;
+    });
+  };
+
+  const updateKillerProgress = async (
+    gameId: string,
+    playerId: string,
+    playerType: 'user' | 'friend',
+    lives: number,
+    isKiller: boolean,
+    isEliminated: boolean
+  ): Promise<KillerProgressRow | null> => {
+    return fetchData(async () => {
+      const result = await supabase
+        .from('killer_progress')
+        .update({
+          lives,
+          is_killer: isKiller,
+          is_eliminated: isEliminated,
+          updated_at: new Date().toISOString()
+        })
+        .eq('game_id', gameId)
+        .eq('player_id', playerId)
+        .eq('player_type', playerType)
+        .select()
+        .single();
+
+      return result;
+    });
+  };
+
+  // Add turn specifically for Killer games
+  const addKillerTurn = async (
+    gameId: string,
+    playerId: string,
+    playerType: 'user' | 'friend',
+    turnNumber: number,
+    hits: number[], // Numbers that were hit (encoded as number * 10 + multiplier for storage)
+    livesAfter: number
+  ): Promise<TurnRow | null> => {
+    return fetchData(async () => {
+      const result = await supabase
+        .from('turns')
+        .insert({
+          game_id: gameId,
+          player_id: playerId,
+          player_type: playerType,
+          turn_number: turnNumber,
+          scores: hits, // Store encoded hits
+          remaining: livesAfter, // Store lives after turn
+          checkout: false
+        })
+        .select()
+        .single();
+
       return result;
     });
   };
@@ -1605,6 +1730,12 @@ export const useSupabase = () => {
     getATWProgress,
     updateATWProgress,
     addATWTurn,
+    // Killer game functions
+    initializeKillerProgress,
+    getKillerProgress,
+    claimKillerNumber,
+    updateKillerProgress,
+    addKillerTurn,
     // Revert functionality
     revertToTurn,
   };

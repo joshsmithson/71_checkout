@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Button, 
-  Card, 
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Card,
   CardContent,
-  FormControl,
   FormControlLabel,
-  Radio,
-  RadioGroup,
   TextField,
   Divider,
   Checkbox,
@@ -36,7 +33,9 @@ import {
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
-import { ATW_GAME_CONFIGS, ATWGameType, isATWGameType } from '@/types/around-the-world';
+import { ATWGameType, isATWGameType } from '@/types/around-the-world';
+import { KillerGameType, isKillerGameType } from '@/types/killer';
+import GameTypeSelector from '@/components/game/GameTypeSelector';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
 import AddIcon from '@mui/icons-material/Add';
 import PersonIcon from '@mui/icons-material/Person';
@@ -49,14 +48,15 @@ const MotionCard = motion.create(Card);
 const GameSetup = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { 
-    getFriends, 
-    createGame, 
-    addPlayersToGame, 
+  const {
+    getFriends,
+    createGame,
+    addPlayersToGame,
     addFriend,
     deleteFriend,
     initializeATWProgress,
-    loading 
+    initializeKillerProgress,
+    loading
   } = useSupabase();
 
   // State
@@ -213,7 +213,9 @@ const GameSetup = () => {
 
       // Determine starting score based on game type
       const isATW = isATWGameType(gameType);
-      const startingScore = isATW ? 1 : parseInt(gameType); // ATW starts at position 1, others use the score
+      const isKiller = isKillerGameType(gameType);
+      // ATW starts at position 1, Killer starts at 0 lives, traditional uses the score
+      const startingScore = isATW ? 1 : isKiller ? 0 : parseInt(gameType);
 
       // Prepare player list with the current user as first player
       let playersList: Array<{
@@ -256,11 +258,20 @@ const GameSetup = () => {
 
       // If this is an Around the World game, initialize progress tracking
       if (isATW) {
-        const progressPlayers = playersList.map(p => ({ 
-          playerId: p.playerId, 
-          playerType: p.playerType 
+        const progressPlayers = playersList.map(p => ({
+          playerId: p.playerId,
+          playerType: p.playerType
         }));
         await initializeATWProgress(game.id, progressPlayers, gameType as ATWGameType, multiplierAdvances);
+      }
+
+      // If this is a Killer game, initialize progress tracking
+      if (isKillerGameType(gameType)) {
+        const progressPlayers = playersList.map(p => ({
+          playerId: p.playerId,
+          playerType: p.playerType
+        }));
+        await initializeKillerProgress(game.id, progressPlayers, gameType as KillerGameType);
       }
 
       // Navigate to the created game
@@ -294,45 +305,10 @@ const GameSetup = () => {
             <Typography variant="h6" component="h2" gutterBottom>
               Game Type
             </Typography>
-            <FormControl component="fieldset" fullWidth>
-              <RadioGroup 
-                value={gameType} 
-                onChange={(e) => setGameType(e.target.value)}
-              >
-                {/* Traditional scoring games */}
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1, mb: 1 }}>
-                  Traditional Games
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  <FormControlLabel value="301" control={<Radio />} label="301" />
-                  <FormControlLabel value="501" control={<Radio />} label="501" />
-                  <FormControlLabel value="701" control={<Radio />} label="701" />
-                </Box>
-                
-                {/* Around the World games */}
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
-                  Around the World
-                </Typography>
-                {Object.entries(ATW_GAME_CONFIGS).map(([type, config]) => (
-                  <FormControlLabel 
-                    key={type}
-                    value={type} 
-                    control={<Radio />} 
-                    label={
-                      <Box>
-                        <Typography variant="body2" fontWeight="medium">
-                          {config.displayName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {config.description}
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ mb: 1, alignItems: 'flex-start' }}
-                  />
-                ))}
-              </RadioGroup>
-            </FormControl>
+            <GameTypeSelector
+              value={gameType}
+              onChange={setGameType}
+            />
           </CardContent>
         </MotionCard>
 
