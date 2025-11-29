@@ -13,8 +13,9 @@ import { motion } from 'framer-motion';
 import BackspaceIcon from '@mui/icons-material/Backspace';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PublishIcon from '@mui/icons-material/Publish';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import { useUI } from '@/contexts/UIContext';
 import {
   KillerPhase,
@@ -339,54 +340,50 @@ const KillerScoreEntry: React.FC<KillerScoreEntryProps> = ({
     return (
       <>
         <Paper sx={{
-          p: 2,
-          mb: 2,
+          p: 1.5,
+          mb: 1.5,
           bgcolor: isEffectivelyKiller ? 'error.dark' : 'grey.900',
           borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
           transition: 'background-color 0.3s ease'
         }}>
-          <Typography
-            variant="caption"
-            color={isEffectivelyKiller ? 'error.contrastText' : 'grey.500'}
-            sx={{
-              fontWeight: 'medium',
-              fontSize: '0.75rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
-            }}
-          >
-            {isEffectivelyKiller ? 'YOU ARE NOW A KILLER!' : 'Building Phase'} - Your Number: {ownNumber}
-          </Typography>
-          <Typography
-            variant="h4"
-            component="div"
-            fontWeight="bold"
-            color={isEffectivelyKiller ? 'error.contrastText' : 'primary.main'}
-            sx={{ mb: 1, lineHeight: 1 }}
-          >
-            {effectiveLives} / {maxLives} lives
-            {livesGainedThisTurn > 0 && (
-              <Typography component="span" variant="body2" sx={{ ml: 1, opacity: 0.8 }}>
-                (+{livesGainedThisTurn} this turn)
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                size="small"
+                label={ownNumber}
+                color="primary"
+                sx={{ fontWeight: 'bold' }}
+              />
+              <Typography
+                variant="h5"
+                component="span"
+                fontWeight="bold"
+                color={isEffectivelyKiller ? 'error.contrastText' : 'primary.main'}
+              >
+                {effectiveLives}/{maxLives}
+              </Typography>
+              <FavoriteIcon fontSize="small" color="error" />
+              {livesGainedThisTurn > 0 && (
+                <Typography variant="caption" color="success.main" fontWeight="bold">
+                  +{livesGainedThisTurn}
+                </Typography>
+              )}
+            </Box>
+            {isEffectivelyKiller ? (
+              <Chip size="small" label="KILLER!" color="error" icon={<GpsFixedIcon />} />
+            ) : (
+              <Typography variant="caption" color="grey.500">
+                Need {3 - effectiveLives} more
               </Typography>
             )}
-          </Typography>
-          <Typography variant="body2" color={isEffectivelyKiller ? 'error.contrastText' : 'text.secondary'}>
-            {isEffectivelyKiller
-              ? 'You can now attack other players with your remaining darts!'
-              : `Hit your number (${ownNumber}) to gain lives. Reach 3 to become a Killer!`
-            }
-          </Typography>
+          </Box>
 
-          {/* Darts thrown this turn */}
+          {/* Darts thrown this turn - compact */}
           <Box sx={{
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            gap: 1,
-            minHeight: '36px',
-            mt: 2
+            gap: 0.5
           }}>
             {dartHits.map((hit, index) => {
               const owner = hit.number > 0 ? getPlayerByNumber(allPlayers, hit.number) : null;
@@ -398,13 +395,8 @@ const KillerScoreEntry: React.FC<KillerScoreEntryProps> = ({
                   label={formatDartDisplay(hit)}
                   color={isAttack ? 'error' : isOwnNumber ? 'success' : hit.number === 0 ? 'default' : 'warning'}
                   variant="filled"
-                  size="medium"
-                  icon={isOwnNumber ? <CheckCircleIcon /> : hit.number === 0 ? <CancelIcon /> : undefined}
-                  sx={{
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem',
-                    px: 1
-                  }}
+                  size="small"
+                  sx={{ fontWeight: 'bold' }}
                 />
               );
             })}
@@ -412,159 +404,151 @@ const KillerScoreEntry: React.FC<KillerScoreEntryProps> = ({
               <Box
                 key={`empty-${index}`}
                 sx={{
-                  width: '60px',
-                  height: '32px',
-                  border: '2px dashed',
+                  width: '50px',
+                  height: '24px',
+                  border: '1px dashed',
                   borderColor: isEffectivelyKiller ? 'error.light' : 'grey.700',
-                  borderRadius: '16px',
-                  opacity: 0.3,
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center'
+                  borderRadius: '12px',
+                  opacity: 0.3
                 }}
-              >
-                <Typography variant="caption" color={isEffectivelyKiller ? 'error.light' : 'grey.600'}>·</Typography>
-              </Box>
+              />
             ))}
           </Box>
         </Paper>
 
         {/* Building Controls - switches to Killer controls when reaching 3 lives */}
-        <Paper sx={{ p: 2, mb: 2, borderRadius: '12px' }}>
+        <Paper sx={{ p: 1.5, mb: 2, borderRadius: '12px' }}>
           {!isEffectivelyKiller ? (
-            // Building mode - only hit own number
+            // Building mode - compact buttons for own number
             <>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
-                Did you hit {ownNumber}?
-              </Typography>
-
-              <Stack spacing={1.5} sx={{ mb: 2 }}>
-                <MotionButton
-                  variant="contained"
-                  color="success"
-                  size="large"
-                  fullWidth
-                  onClick={() => handleHit(ownNumber, 1)}
-                  disabled={dartHits.length >= 3}
-                  startIcon={<CheckCircleIcon />}
-                  whileTap={{ scale: 0.95 }}
-                  sx={{ py: 2, borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', boxShadow: 3 }}
-                >
-                  Single {ownNumber} (+1 life)
-                </MotionButton>
-
-                <Grid container spacing={1}>
-                  <Grid item xs={6}>
-                    <MotionButton
-                      variant="contained"
-                      color="success"
-                      size="large"
-                      fullWidth
-                      onClick={() => handleHit(ownNumber, 2)}
-                      disabled={dartHits.length >= 3}
-                      whileTap={{ scale: 0.95 }}
-                      sx={{ py: 1.5, borderRadius: '12px', fontWeight: 'bold', bgcolor: 'success.dark' }}
-                    >
-                      Double (+2)
-                    </MotionButton>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <MotionButton
-                      variant="contained"
-                      color="success"
-                      size="large"
-                      fullWidth
-                      onClick={() => handleHit(ownNumber, 3)}
-                      disabled={dartHits.length >= 3}
-                      whileTap={{ scale: 0.95 }}
-                      sx={{ py: 1.5, borderRadius: '12px', fontWeight: 'bold', bgcolor: 'success.dark' }}
-                    >
-                      Triple (+3)
-                    </MotionButton>
-                  </Grid>
+              <Grid container spacing={1} sx={{ mb: 1 }}>
+                <Grid item xs={4}>
+                  <MotionButton
+                    variant="contained"
+                    color="success"
+                    fullWidth
+                    onClick={() => handleHit(ownNumber, 1)}
+                    disabled={dartHits.length >= 3}
+                    whileTap={{ scale: 0.95 }}
+                    sx={{ py: 1.5, borderRadius: '8px', fontWeight: 'bold', flexDirection: 'column' }}
+                  >
+                    <span>S{ownNumber}</span>
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>+1</Typography>
+                  </MotionButton>
                 </Grid>
+                <Grid item xs={4}>
+                  <MotionButton
+                    variant="contained"
+                    color="success"
+                    fullWidth
+                    onClick={() => handleHit(ownNumber, 2)}
+                    disabled={dartHits.length >= 3}
+                    whileTap={{ scale: 0.95 }}
+                    sx={{ py: 1.5, borderRadius: '8px', fontWeight: 'bold', bgcolor: 'success.dark', flexDirection: 'column' }}
+                  >
+                    <span>D{ownNumber}</span>
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>+2</Typography>
+                  </MotionButton>
+                </Grid>
+                <Grid item xs={4}>
+                  <MotionButton
+                    variant="contained"
+                    color="success"
+                    fullWidth
+                    onClick={() => handleHit(ownNumber, 3)}
+                    disabled={dartHits.length >= 3}
+                    whileTap={{ scale: 0.95 }}
+                    sx={{ py: 1.5, borderRadius: '8px', fontWeight: 'bold', bgcolor: 'success.dark', flexDirection: 'column' }}
+                  >
+                    <span>T{ownNumber}</span>
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>+3</Typography>
+                  </MotionButton>
+                </Grid>
+              </Grid>
 
-                <MotionButton
-                  variant="outlined"
-                  color="error"
-                  size="large"
-                  fullWidth
-                  onClick={handleMiss}
-                  disabled={dartHits.length >= 3}
-                  startIcon={<CancelIcon />}
-                  whileTap={{ scale: 0.95 }}
-                  sx={{ py: 2, borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', borderWidth: 2 }}
-                >
-                  MISS
-                </MotionButton>
-              </Stack>
+              <MotionButton
+                variant="outlined"
+                color="inherit"
+                fullWidth
+                onClick={handleMiss}
+                disabled={dartHits.length >= 3}
+                startIcon={<CancelIcon />}
+                whileTap={{ scale: 0.95 }}
+                sx={{ py: 1, borderRadius: '8px', fontWeight: 'bold', borderWidth: 2, borderColor: 'grey.600' }}
+              >
+                MISS
+              </MotionButton>
             </>
           ) : (
-            // Killer mode mid-turn - show full number grid to attack
+            // Killer mode mid-turn - show compact grid with only relevant numbers
             <>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
-                Attack other players! Select the number you hit.
-              </Typography>
-
               {!selectedNumber ? (
                 <>
-                  <Grid container spacing={1}>
-                    {[...Array(20)].map((_, i) => {
-                      const num = i + 1;
-                      const owner = getPlayerByNumber(allPlayers, num);
-                      const isOwnNumber = num === ownNumber;
-                      const isEliminated = owner?.progress.is_eliminated;
+                  {/* Compact grid showing only relevant numbers */}
+                  {(() => {
+                    const relevantPlayers = allPlayers.filter(p =>
+                      !p.progress.is_eliminated && p.progress.claimed_number !== null
+                    );
 
-                      return (
-                        <Grid item xs={3} key={num}>
+                    return (
+                      <Grid container spacing={1}>
+                        {relevantPlayers.map((player) => {
+                          const num = player.progress.claimed_number!;
+                          const isOwnNum = num === ownNumber;
+
+                          return (
+                            <Grid item xs={4} key={num}>
+                              <MotionButton
+                                variant="contained"
+                                color={isOwnNum ? 'success' : 'error'}
+                                fullWidth
+                                disabled={dartHits.length >= 3}
+                                onClick={() => setSelectedNumber(num)}
+                                whileTap={{ scale: 0.95 }}
+                                sx={{
+                                  py: 1.5,
+                                  borderRadius: '8px',
+                                  fontWeight: 'bold',
+                                  fontSize: '1rem',
+                                  flexDirection: 'column'
+                                }}
+                              >
+                                <span>{num}</span>
+                                <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, opacity: 0.9 }}>
+                                  {isOwnNum ? 'You' : player.name.substring(0, 6)}
+                                </Typography>
+                              </MotionButton>
+                            </Grid>
+                          );
+                        })}
+                        {/* Miss button inline */}
+                        <Grid item xs={4}>
                           <MotionButton
-                            variant={owner ? 'contained' : 'outlined'}
-                            color={
-                              isOwnNumber ? 'success' :
-                              isEliminated ? 'inherit' :
-                              owner ? 'error' :
-                              'inherit'
-                            }
+                            variant="outlined"
+                            color="inherit"
                             fullWidth
-                            disabled={dartHits.length >= 3 || isEliminated}
-                            onClick={() => setSelectedNumber(num)}
+                            onClick={handleMiss}
+                            disabled={dartHits.length >= 3}
                             whileTap={{ scale: 0.95 }}
                             sx={{
-                              py: 1,
+                              py: 1.5,
                               borderRadius: '8px',
                               fontWeight: 'bold',
-                              fontSize: '0.9rem',
+                              fontSize: '1rem',
                               flexDirection: 'column',
-                              opacity: isEliminated ? 0.3 : 1
+                              borderWidth: 2,
+                              borderColor: 'grey.600'
                             }}
                           >
-                            <span>{num}</span>
-                            {owner && (
-                              <Typography variant="caption" sx={{ fontSize: '0.6rem', lineHeight: 1 }}>
-                                {owner.name.substring(0, 5)}
-                              </Typography>
-                            )}
+                            <CancelIcon fontSize="small" />
+                            <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
+                              Miss
+                            </Typography>
                           </MotionButton>
                         </Grid>
-                      );
-                    })}
-                  </Grid>
-
-                  <Box sx={{ mt: 2 }}>
-                    <MotionButton
-                      variant="outlined"
-                      color="error"
-                      size="large"
-                      fullWidth
-                      onClick={handleMiss}
-                      disabled={dartHits.length >= 3}
-                      startIcon={<CancelIcon />}
-                      whileTap={{ scale: 0.95 }}
-                      sx={{ py: 1.5, borderRadius: '12px', fontWeight: 'bold', borderWidth: 2 }}
-                    >
-                      MISS
-                    </MotionButton>
-                  </Box>
+                      </Grid>
+                    );
+                  })()}
                 </>
               ) : (
                 <Stack spacing={1.5}>
@@ -687,48 +671,40 @@ const KillerScoreEntry: React.FC<KillerScoreEntryProps> = ({
   return (
     <>
       <Paper sx={{
-        p: 2,
-        mb: 2,
+        p: 1.5,
+        mb: 1.5,
         bgcolor: isKiller ? 'error.dark' : 'grey.900',
-        borderRadius: '12px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+        borderRadius: '12px'
       }}>
-        <Typography
-          variant="caption"
-          color={isKiller ? 'error.contrastText' : 'grey.500'}
-          sx={{
-            fontWeight: 'medium',
-            fontSize: '0.75rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px'
-          }}
-        >
-          {isKiller ? 'KILLER MODE' : 'Building Lives'} - Your Number: {killerPlayerNumber}
-        </Typography>
-        <Typography
-          variant="h4"
-          component="div"
-          fontWeight="bold"
-          color={isKiller ? 'error.contrastText' : 'primary.main'}
-          sx={{ mb: 1, lineHeight: 1 }}
-        >
-          {currentPlayer.progress.lives} / {maxLives} lives
-        </Typography>
-        <Typography variant="body2" color={isKiller ? 'error.contrastText' : 'text.secondary'}>
-          {isKiller
-            ? 'Attack other players by hitting their numbers!'
-            : `Keep building lives. You need ${3 - currentPlayer.progress.lives} more to become a Killer.`
-          }
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip
+              size="small"
+              label={killerPlayerNumber}
+              color="primary"
+              sx={{ fontWeight: 'bold' }}
+            />
+            <Typography
+              variant="h5"
+              component="span"
+              fontWeight="bold"
+              color={isKiller ? 'error.contrastText' : 'primary.main'}
+            >
+              {currentPlayer.progress.lives}/{maxLives}
+            </Typography>
+            <FavoriteIcon fontSize="small" color="error" />
+          </Box>
+          {isKiller && (
+            <Chip size="small" label="KILLER" color="error" icon={<GpsFixedIcon />} />
+          )}
+        </Box>
 
-        {/* Darts thrown this turn */}
+        {/* Darts thrown this turn - compact */}
         <Box sx={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: 1,
-          minHeight: '36px',
-          mt: 2
+          gap: 0.5
         }}>
           {dartHits.map((hit, index) => {
             const owner = hit.number > 0 ? getPlayerByNumber(allPlayers, hit.number) : null;
@@ -740,12 +716,8 @@ const KillerScoreEntry: React.FC<KillerScoreEntryProps> = ({
                 label={formatDartDisplay(hit)}
                 color={isAttack ? 'error' : isOwnNumber ? 'success' : hit.number === 0 ? 'default' : 'warning'}
                 variant="filled"
-                size="medium"
-                sx={{
-                  fontWeight: 'bold',
-                  fontSize: '0.9rem',
-                  px: 1
-                }}
+                size="small"
+                sx={{ fontWeight: 'bold' }}
               />
             );
           })}
@@ -753,90 +725,88 @@ const KillerScoreEntry: React.FC<KillerScoreEntryProps> = ({
             <Box
               key={`empty-${index}`}
               sx={{
-                width: '60px',
-                height: '32px',
-                border: '2px dashed',
+                width: '50px',
+                height: '24px',
+                border: '1px dashed',
                 borderColor: isKiller ? 'error.light' : 'grey.700',
-                borderRadius: '16px',
-                opacity: 0.3,
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center'
+                borderRadius: '12px',
+                opacity: 0.3
               }}
-            >
-              <Typography variant="caption" color={isKiller ? 'error.light' : 'grey.600'}>·</Typography>
-            </Box>
+            />
           ))}
         </Box>
       </Paper>
 
       {/* Killer Phase Controls */}
-      <Paper sx={{ p: 2, mb: 2, borderRadius: '12px' }}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
-          Select the number you hit, then choose multiplier
-        </Typography>
-
+      <Paper sx={{ p: 1.5, mb: 2, borderRadius: '12px' }}>
         {!selectedNumber ? (
           <>
-            {/* Number Grid with Owner Info */}
-            <Grid container spacing={1}>
-              {[...Array(20)].map((_, i) => {
-                const num = i + 1;
-                const owner = getPlayerByNumber(allPlayers, num);
-                const isOwnNumber = num === killerPlayerNumber;
-                const isEliminated = owner?.progress.is_eliminated;
+            {/* Compact grid showing only relevant numbers: own number + other active players' numbers */}
+            {(() => {
+              // Get relevant numbers: own number + other active players' numbers
+              const relevantPlayers = allPlayers.filter(p =>
+                !p.progress.is_eliminated && p.progress.claimed_number !== null
+              );
 
-                return (
-                  <Grid item xs={3} key={num}>
+              return (
+                <Grid container spacing={1}>
+                  {relevantPlayers.map((player) => {
+                    const num = player.progress.claimed_number!;
+                    const isOwnNumber = num === killerPlayerNumber;
+
+                    return (
+                      <Grid item xs={4} key={num}>
+                        <MotionButton
+                          variant="contained"
+                          color={isOwnNumber ? 'success' : 'error'}
+                          fullWidth
+                          disabled={dartHits.length >= 3}
+                          onClick={() => setSelectedNumber(num)}
+                          whileTap={{ scale: 0.95 }}
+                          sx={{
+                            py: 1.5,
+                            borderRadius: '8px',
+                            fontWeight: 'bold',
+                            fontSize: '1rem',
+                            flexDirection: 'column'
+                          }}
+                        >
+                          <span>{num}</span>
+                          <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, opacity: 0.9 }}>
+                            {isOwnNumber ? 'You' : player.name.substring(0, 6)}
+                          </Typography>
+                        </MotionButton>
+                      </Grid>
+                    );
+                  })}
+                  {/* Miss button inline with numbers */}
+                  <Grid item xs={4}>
                     <MotionButton
-                      variant={owner ? 'contained' : 'outlined'}
-                      color={
-                        isOwnNumber ? 'success' :
-                        isEliminated ? 'inherit' :
-                        owner ? 'error' :
-                        'inherit'
-                      }
+                      variant="outlined"
+                      color="inherit"
                       fullWidth
-                      disabled={dartHits.length >= 3 || isEliminated}
-                      onClick={() => setSelectedNumber(num)}
+                      onClick={handleMiss}
+                      disabled={dartHits.length >= 3}
                       whileTap={{ scale: 0.95 }}
                       sx={{
-                        py: 1,
+                        py: 1.5,
                         borderRadius: '8px',
                         fontWeight: 'bold',
-                        fontSize: '0.9rem',
+                        fontSize: '1rem',
                         flexDirection: 'column',
-                        opacity: isEliminated ? 0.3 : 1
+                        borderWidth: 2,
+                        borderColor: 'grey.600'
                       }}
                     >
-                      <span>{num}</span>
-                      {owner && (
-                        <Typography variant="caption" sx={{ fontSize: '0.6rem', lineHeight: 1 }}>
-                          {owner.name.substring(0, 5)}
-                        </Typography>
-                      )}
+                      <CancelIcon fontSize="small" />
+                      <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
+                        Miss
+                      </Typography>
                     </MotionButton>
                   </Grid>
-                );
-              })}
-            </Grid>
-
-            {/* Miss Button */}
-            <Box sx={{ mt: 2 }}>
-              <MotionButton
-                variant="outlined"
-                color="error"
-                size="large"
-                fullWidth
-                onClick={handleMiss}
-                disabled={dartHits.length >= 3}
-                startIcon={<CancelIcon />}
-                whileTap={{ scale: 0.95 }}
-                sx={{ py: 1.5, borderRadius: '12px', fontWeight: 'bold', borderWidth: 2 }}
-              >
-                MISS
-              </MotionButton>
-            </Box>
+                </Grid>
+              );
+            })()}
           </>
         ) : (
           <Stack spacing={1.5}>

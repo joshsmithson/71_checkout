@@ -703,7 +703,7 @@ const ActiveKillerGame = () => {
   const isCompleted = gameData?.status === 'completed' || winner !== null;
 
   return (
-    <Container maxWidth="sm" sx={{ py: 1, pb: 8 }}>
+    <Container maxWidth="sm" sx={{ py: 1, pb: 2 }}>
       {/* Game Header */}
       <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
@@ -813,12 +813,16 @@ const ActiveKillerGame = () => {
         </Alert>
       )}
 
-      {/* Player Status Cards */}
-      <Paper sx={{ p: 1.5, mb: 2, borderRadius: '12px' }}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          Players
-        </Typography>
-        <Stack spacing={1}>
+      {/* Compact Player Status - horizontal scrollable in killer phase */}
+      <Paper sx={{ p: 1, mb: 1.5, borderRadius: '12px' }}>
+        <Box sx={{
+          display: 'flex',
+          gap: 1,
+          overflowX: 'auto',
+          pb: 0.5,
+          '&::-webkit-scrollbar': { height: 4 },
+          '&::-webkit-scrollbar-thumb': { bgcolor: 'grey.700', borderRadius: 2 }
+        }}>
           {killerPlayers.map((player, index) => {
             const isCurrent = index === currentPlayerIndex && !isCompleted;
             const preview = getPreviewLives(player.id, player.type);
@@ -830,44 +834,53 @@ const ActiveKillerGame = () => {
               <Box
                 key={`${player.id}-${player.type}`}
                 sx={{
-                  p: 1,
+                  p: 0.75,
                   borderRadius: '8px',
                   bgcolor: player.progress.is_eliminated
                     ? 'action.disabledBackground'
                     : isCurrent
                     ? 'primary.dark'
                     : 'background.paper',
-                  border: '1px solid',
+                  border: '2px solid',
                   borderColor: livesChange < 0 ? 'error.main' : livesChange > 0 ? 'success.main' : isCurrent ? 'primary.main' : 'divider',
-                  opacity: player.progress.is_eliminated ? 0.5 : 1,
+                  opacity: player.progress.is_eliminated ? 0.4 : 1,
+                  minWidth: '85px',
+                  flexShrink: 0,
                   transition: 'border-color 0.2s ease'
                 }}
               >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography
-                      variant="body2"
-                      fontWeight={isCurrent ? 'bold' : 'normal'}
-                      sx={{ textDecoration: player.progress.is_eliminated ? 'line-through' : 'none' }}
-                    >
-                      {player.name}
-                    </Typography>
-                    {player.progress.claimed_number && (
-                      <Chip
-                        size="small"
-                        label={player.progress.claimed_number}
-                        color="primary"
-                        variant="outlined"
-                        sx={{ height: '20px', fontSize: '0.7rem' }}
-                      />
-                    )}
-                    {player.progress.is_killer && !player.progress.is_eliminated && (
-                      <GpsFixedIcon fontSize="small" color="error" />
-                    )}
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <FavoriteIcon fontSize="small" color={displayLives > 0 ? 'error' : 'disabled'} />
-                    <Typography variant="body2" fontWeight="bold">
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    fontWeight={isCurrent ? 'bold' : 'normal'}
+                    sx={{
+                      textDecoration: player.progress.is_eliminated ? 'line-through' : 'none',
+                      fontSize: '0.7rem',
+                      lineHeight: 1.2,
+                      maxWidth: '50px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {player.name.substring(0, 6)}
+                  </Typography>
+                  {player.progress.is_killer && !player.progress.is_eliminated && (
+                    <GpsFixedIcon sx={{ fontSize: '0.75rem' }} color="error" />
+                  )}
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mt: 0.25 }}>
+                  {player.progress.claimed_number && (
+                    <Chip
+                      size="small"
+                      label={player.progress.claimed_number}
+                      color="primary"
+                      sx={{ height: '16px', fontSize: '0.65rem', '& .MuiChip-label': { px: 0.5 } }}
+                    />
+                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', ml: 'auto' }}>
+                    <FavoriteIcon sx={{ fontSize: '0.75rem' }} color={displayLives > 0 ? 'error' : 'disabled'} />
+                    <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem' }}>
                       {displayLives}
                     </Typography>
                     {livesChange !== 0 && (
@@ -876,10 +889,10 @@ const ActiveKillerGame = () => {
                         fontWeight="bold"
                         sx={{
                           color: livesChange > 0 ? 'success.main' : 'error.main',
-                          ml: 0.5
+                          fontSize: '0.65rem'
                         }}
                       >
-                        ({livesChange > 0 ? '+' : ''}{livesChange})
+                        {livesChange > 0 ? '+' : ''}{livesChange}
                       </Typography>
                     )}
                   </Box>
@@ -888,23 +901,16 @@ const ActiveKillerGame = () => {
                   variant="determinate"
                   value={livesPercent}
                   color={livesChange < 0 ? 'error' : livesChange > 0 ? 'success' : player.progress.is_killer ? 'error' : 'primary'}
-                  sx={{ height: 6, borderRadius: 3, transition: 'all 0.2s ease' }}
+                  sx={{ height: 3, borderRadius: 2, mt: 0.5 }}
                 />
               </Box>
             );
           })}
-        </Stack>
+        </Box>
       </Paper>
 
       {!isCompleted && !isPaused && currentPlayer ? (
         <>
-          {/* Current Player Indicator */}
-          <Paper sx={{ p: 1.5, mb: 2, borderRadius: '12px', bgcolor: 'primary.dark' }}>
-            <Typography variant="body2" color="primary.contrastText" textAlign="center">
-              {currentPlayer.name}'s Turn
-            </Typography>
-          </Paper>
-
           {/* Score Entry */}
           <KillerScoreEntry
             phase={phase}
@@ -916,52 +922,6 @@ const ActiveKillerGame = () => {
             onKillerSubmit={handleKillerSubmit}
             onDartHitsChange={setCurrentDartHits}
           />
-
-          {/* Fixed Action Bar */}
-          <Paper
-            elevation={3}
-            sx={{
-              position: 'fixed',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              py: 0.5,
-              px: 2,
-              zIndex: 10,
-              borderRadius: 0,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}
-          >
-            <Button
-              color="inherit"
-              onClick={() => setConfirmExitGame(true)}
-              startIcon={<HomeIcon />}
-              size="small"
-            >
-              Exit
-            </Button>
-
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => setConfirmPauseGame(true)}
-              startIcon={<PauseIcon />}
-              size="small"
-            >
-              Pause
-            </Button>
-
-            <Button
-              color="inherit"
-              onClick={() => setShowTurnHistory(true)}
-              startIcon={<HistoryIcon />}
-              size="small"
-            >
-              History
-            </Button>
-          </Paper>
         </>
       ) : (
         <Box sx={{ textAlign: 'center', mt: 4 }}>
